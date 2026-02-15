@@ -56,8 +56,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     private var geminiAudioManager: GeminiAudioRecordingManager!
     private var streamingPlayer: GeminiStreamingPlayer?
     private var audioCollector: GeminiAudioCollector?
-    private var supertonicEngine: SupertonicEngine?
-    private var currentTTSEngine: TTSEngine = .gemini
+    var supertonicEngine: SupertonicEngine?
+    var currentTTSEngine: TTSEngine = .gemini
     private var isCurrentlyPlaying = false
     private var currentStreamingTask: Task<Void, Never>?
     private var screenRecorder = ScreenRecorder()

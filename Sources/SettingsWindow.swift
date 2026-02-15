@@ -107,6 +107,9 @@ struct SettingsView: View {
                             }
                         )
                     }
+                    
+                    // TTS Engine section
+                    TTSSettingsSection()
                 }
                 .padding()
             }
