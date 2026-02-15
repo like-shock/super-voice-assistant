@@ -135,7 +135,7 @@ public class SupertonicEngine: TTSAudioProvider {
                         try self.load()
                     }
                     
-                    let sentences = SmartSentenceSplitter.splitIntoSentences(text)
+                    let sentences = SmartSentenceSplitter.splitByLines(text)
                     print("📖 [Supertonic] Split into \(sentences.count) sentences")
                     
                     for (index, sentence) in sentences.enumerated() {

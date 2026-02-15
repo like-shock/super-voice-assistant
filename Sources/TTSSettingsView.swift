@@ -161,13 +161,10 @@ struct TTSSettingsSection: View {
     private static let edgeVoicePresets: [(name: String, id: String)] = [
         ("선히 (여성)", "ko-KR-SunHiNeural"),
         ("인준 (남성)", "ko-KR-InJoonNeural"),
-        ("유진 (여성)", "ko-KR-YuJinNeural"),
-        ("봉진 (남성)", "ko-KR-BongJinNeural"),
-        ("지민 (여성)", "ko-KR-JiMinNeural"),
-        ("국민 (남성)", "ko-KR-GookMinNeural"),
-        ("Jenny (EN-F)", "en-US-JennyNeural"),
-        ("Guy (EN-M)", "en-US-GuyNeural"),
-        ("Xiaoxiao (ZH-F)", "zh-CN-XiaoxiaoNeural"),
+        ("현수 (남성/다국어)", "ko-KR-HyunsuMultilingualNeural"),
+        ("Jenny (EN-F)", "en-US-JennyMultilingualNeural"),
+        ("Guy (EN-M)", "en-US-AndrewMultilingualNeural"),
+        ("Xiaoxiao (ZH-F)", "zh-CN-XiaoxiaoMultilingualNeural"),
     ]
     
     private var edgeTTSCard: some View {
@@ -251,12 +248,11 @@ struct TTSSettingsSection: View {
         
         appDelegate.stopCurrentPlayback()
         
-        if #available(macOS 14.0, *),
-           let player = appDelegate.streamingPlayer {
+        if #available(macOS 14.0, *) {
             appDelegate.currentStreamingTask?.cancel()
             appDelegate.currentStreamingTask = Task {
                 do {
-                    try await player.playText(sampleText, provider: engine)
+                    try await engine.playText(sampleText)
                 } catch is CancellationError {
                 } catch {
                     print("⚠️ Edge TTS preview failed: \(error)")

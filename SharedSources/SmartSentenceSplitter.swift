@@ -155,6 +155,26 @@ public struct SmartSentenceSplitter {
         return combinedSentences
     }
     
+    /// 줄 단위로 먼저 쪼개고, 긴 줄은 문장 단위로 추가 분할
+    public static func splitByLines(_ text: String, maxCharsPerChunk: Int = 40) -> [String] {
+        let lines = text.components(separatedBy: .newlines)
+            .map { $0.trimmingCharacters(in: .whitespaces) }
+            .filter { !$0.isEmpty }
+        
+        var result: [String] = []
+        for line in lines {
+            if line.count <= maxCharsPerChunk {
+                result.append(line)
+            } else {
+                // 긴 줄은 문장 단위로 추가 분할
+                let sentences = splitIntoSentences(line, minWordsPerSentence: 0)
+                result.append(contentsOf: sentences)
+            }
+        }
+        
+        return result.isEmpty ? [text] : result
+    }
+    
     public static func analyzeText(_ text: String) -> (sentences: [String], wordCounts: [Int]) {
         let sentences = splitIntoSentences(text)
         let wordCounts = sentences.map { sentence in
