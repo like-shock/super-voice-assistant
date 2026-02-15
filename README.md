@@ -1,6 +1,6 @@
 # Super Voice Assistant
 
-macOS voice assistant with global hotkeys - transcribe speech to text with offline models (WhisperKit or Parakeet) or cloud-based Gemini API, capture and transcribe screen recordings with visual context, and read selected text aloud with Gemini Live or Supertonic (local). Fast, accurate, and simple.
+macOS voice assistant with global hotkeys — transcribe speech to text with offline models (WhisperKit or Parakeet) or cloud-based Gemini API, capture and transcribe screen recordings with visual context, and read selected text aloud with Supertonic (local) or Gemini Live (cloud). Fast, accurate, and simple.
 
 ## Demo
 
@@ -33,7 +33,7 @@ https://github.com/user-attachments/assets/0b7f481f-4fec-4811-87ef-13737e0efac4
   - **Gemini Live (Cloud)** — streaming WebSocket, requires GEMINI_API_KEY
 - Korean, English, and 3 more languages supported (Supertonic)
 - 10 voice styles (M1-M5, F1-F5) with configurable speed
-- Smart sentence splitting for optimal speech flow
+- Engine selection in Settings UI
 - Automatic fallback to Supertonic when Gemini API key is not available
 
 **Screen Recording & Video Transcription**
@@ -46,7 +46,7 @@ https://github.com/user-attachments/assets/0b7f481f-4fec-4811-87ef-13737e0efac4
 
 - macOS 14.0 or later
 - Xcode 15+ or Xcode Command Line Tools (for Swift 5.9+)
-- Gemini API key (optional — needed for cloud TTS and video transcription; local TTS works without it)
+- Gemini API key (optional — needed for cloud TTS/STT and video transcription; local engines work without it)
 - ffmpeg (for screen recording functionality)
 
 ## System Permissions Setup
@@ -72,8 +72,6 @@ You must manually grant accessibility permissions for the app to:
    - If running the built binary directly: Add the **SuperVoiceAssistant** executable
 5. Ensure the checkbox next to the app is checked
 
-**Important:** Without accessibility access, the app cannot detect global hotkeys (Command+Option+Z/X/A/S/C/V, Escape) or paste text automatically.
-
 ### 3. Screen Recording Access (Required for Video Transcription)
 The app requires screen recording permission to capture screen content:
 - Go to **System Settings > Privacy & Security > Screen Recording**
@@ -89,7 +87,7 @@ cd super-voice-assistant
 # Install ffmpeg (required for screen recording)
 brew install ffmpeg
 
-# Set up environment (for TTS and video transcription)
+# Set up environment (for cloud TTS and video transcription)
 cp .env.example .env
 # Edit .env and add your GEMINI_API_KEY
 
@@ -101,6 +99,18 @@ swift run SuperVoiceAssistant
 ```
 
 The app will appear in your menu bar as a waveform icon.
+
+## Model Storage
+
+All models are stored in `~/Library/Application Support/`:
+
+| Engine | Path | Size |
+|--------|------|------|
+| WhisperKit | `~/Library/Application Support/SuperVoiceAssistant/models/whisperkit/` | ~300MB–1.6GB per model |
+| Supertonic TTS | `~/Library/Application Support/SuperVoiceAssistant/models/supertonic/` | ~305MB |
+| Parakeet | `~/Library/Application Support/FluidAudio/Models/` | ~600MB per version |
+
+Models are automatically downloaded on first use. Legacy paths (`~/Documents/huggingface/`, `~/.cache/supertonic2/`) are auto-migrated on app launch.
 
 ## Configuration
 
@@ -125,7 +135,7 @@ This is useful for correcting common speech-to-text misrecognitions, especially 
 ### Voice-to-Text Transcription
 
 **Local (Cmd+Option+Z):**
-1. Launch the app - it appears in the menu bar
+1. Launch the app — it appears in the menu bar
 2. Open Settings to select and download a model (Parakeet or WhisperKit)
 3. Press **Command+Option+Z** to start recording
 4. Press **Command+Option+Z** again to stop and transcribe
@@ -138,7 +148,7 @@ This is useful for correcting common speech-to-text misrecognitions, especially 
 3. Text automatically pastes at cursor
 
 **Transcription engines:**
-- **Parakeet v2**: ~110x realtime, 1.69% WER, English - recommended for speed
+- **Parakeet v2**: ~110x realtime, 1.69% WER, English — recommended for speed
 - **Parakeet v3**: ~210x realtime, 1.8% WER, 25 languages
 - **WhisperKit**: Various model sizes, good accuracy, more language options
 - **Gemini**: Cloud-based, best for complex audio, requires internet
@@ -148,8 +158,8 @@ This is useful for correcting common speech-to-text misrecognitions, especially 
 2. Press **Command+Option+S** to read the selected text aloud
 3. Press **Command+Option+S** again while reading to cancel the operation
 4. Default engine: **Supertonic** (local, no API key needed) or **Gemini Live** (cloud)
-5. Supertonic models are auto-downloaded on first use (~305MB from HuggingFace to `~/.cache/supertonic2/`)
-6. Configure audio devices via Settings for optimal playback
+5. Configure engine, voice, language, and speed in Settings → Text-to-Speech
+6. Configure audio output device in Settings for optimal playback
 
 ### Screen Recording & Video Transcription
 1. Press **Command+Option+C** to start screen recording
@@ -160,21 +170,19 @@ This is useful for correcting common speech-to-text misrecognitions, especially 
 6. Transcribed text pastes at your cursor position
 7. Video file is automatically deleted after successful transcription
 
-**Note:** Audio recording and screen recording are mutually exclusive - you cannot run both simultaneously.
-
-**When to use video vs audio:**
-- **Video**: Programming, code review, technical documentation, names, acronyms, specialized terminology
-- **Audio**: General speech, quick notes, casual transcription
+**Note:** Audio recording and screen recording are mutually exclusive — you cannot run both simultaneously.
 
 ### Keyboard Shortcuts
 
-- **Command+Option+Z**: Start/stop audio recording and transcribe (WhisperKit - offline)
-- **Command+Option+X**: Start/stop audio recording and transcribe (Gemini - cloud)
-- **Command+Option+S**: Read selected text aloud / Cancel TTS playback
-- **Command+Option+C**: Start/stop screen recording and transcribe
-- **Command+Option+A**: Show transcription history window
-- **Command+Option+V**: Paste last transcription at cursor
-- **Escape**: Cancel audio recording (when recording is active)
+| Shortcut | Action |
+|----------|--------|
+| **Cmd+Opt+Z** | Start/stop audio recording (WhisperKit/Parakeet — offline) |
+| **Cmd+Opt+X** | Start/stop audio recording (Gemini — cloud) |
+| **Cmd+Opt+S** | Read selected text aloud / Cancel TTS playback |
+| **Cmd+Opt+C** | Start/stop screen recording and transcribe |
+| **Cmd+Opt+A** | Show transcription history window |
+| **Cmd+Opt+V** | Paste last transcription at cursor |
+| **Escape** | Cancel audio recording |
 
 ## Available Commands
 
@@ -185,7 +193,7 @@ swift run SuperVoiceAssistant
 # List all available WhisperKit models
 swift run ListModels
 
-# Test downloading a model (currently set to distil-whisper_distil-large-v3)
+# Test downloading a model
 swift run TestDownload
 
 # Validate downloaded models are complete
@@ -196,7 +204,6 @@ swift run DeleteModels
 
 # Delete a specific model
 swift run DeleteModel <model-name>
-# Example: swift run DeleteModel distil-large-v3
 
 # Test transcription with a sample audio file
 swift run TestTranscription
@@ -218,26 +225,38 @@ swift run RecordScreen
 
 # Test video transcription with Gemini API
 swift run TranscribeVideo <path-to-video-file>
-# Example: swift run TranscribeVideo ~/Desktop/recording.mp4
 ```
 
 ## Project Structure
 
-- `Sources/` - Main app code
-  - `ModelStateManager.swift` - Engine and model selection
-  - `AudioTranscriptionManager.swift` - Audio recording and transcription routing
-  - `ScreenRecorder.swift` - Screen recording with ffmpeg
-- `SharedSources/` - Shared components
-  - `TTSProvider.swift` - TTSAudioProvider protocol (pluggable TTS engines)
-  - `SupertonicEngine.swift` - Supertonic local TTS (ONNX Runtime, no Python)
-  - `SupertonicCore.swift` - Supertonic ONNX inference core
-  - `GeminiStreamingPlayer.swift` - Streaming TTS playback (shared by all engines)
-  - `GeminiAudioCollector.swift` - Gemini Live WebSocket TTS
-  - `ParakeetTranscriber.swift` - FluidAudio Parakeet wrapper
-  - `GeminiAudioTranscriber.swift` - Gemini API transcription
-  - `VideoTranscriber.swift` - Gemini API video transcription
-- `tests/` - Test utilities
-- `tools/` - Model management utilities
+```
+Sources/                          # Main app code
+├── main.swift                    # App entry, keyboard shortcuts, TTS engine management
+├── ModelStateManager.swift       # STT engine/model selection + lifecycle
+├── AudioTranscriptionManager.swift  # Audio recording + transcription routing
+├── GeminiAudioRecordingManager.swift # Gemini cloud recording
+├── SettingsWindow.swift          # Unified settings UI
+├── TTSSettingsView.swift         # TTS engine selection UI
+├── ScreenRecorder.swift          # Screen recording via ffmpeg
+├── WhisperModelDownloader.swift  # WhisperKit model download management
+└── ...
+
+SharedSources/                    # Shared components (no AppKit dependency)
+├── TTSProvider.swift             # TTSAudioProvider protocol + TTSEngine enum
+├── SupertonicEngine.swift        # Supertonic local TTS (ONNX Runtime)
+├── SupertonicCore.swift          # Supertonic ONNX inference core
+├── GeminiStreamingPlayer.swift   # Streaming TTS playback (all engines)
+├── GeminiAudioCollector.swift    # Gemini Live WebSocket TTS
+├── GeminiAudioTranscriber.swift  # Gemini API transcription
+├── ParakeetTranscriber.swift     # FluidAudio Parakeet wrapper
+├── WhisperModelManager.swift     # WhisperKit model path + migration
+├── SmartSentenceSplitter.swift   # Text processing for TTS
+├── VideoTranscriber.swift        # Gemini API video transcription
+└── ...
+
+tests/                            # Test utilities
+tools/                            # Model management utilities
+```
 
 ## License
 
