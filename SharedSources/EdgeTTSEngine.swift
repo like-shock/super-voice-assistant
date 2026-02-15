@@ -126,17 +126,30 @@ public class EdgeTTSEngine: TTSAudioProvider {
         "EdgeTTSEngine(voice=\(voiceName), rate=\(rate), pitch=\(pitch))"
     }
     
-    /// mp3를 WebSocket으로 수신 후 AVAudioPlayer로 직접 재생 (PCM 변환 불필요)
+    /// 문장 단위로 분할 → 각 문장 WebSocket 합성 → mp3 직접 재생 (Supertonic과 동일 패턴)
     public func playText(_ text: String) async throws {
+        let sentences = SmartSentenceSplitter.splitIntoSentences(text, minWordsPerSentence: 0)
+        print("📖 [EdgeTTS] Split into \(sentences.count) sentences")
+        
+        for (index, sentence) in sentences.enumerated() {
+            try Task.checkCancellation()
+            
+            let mp3Data = try await synthesizeToMP3(sentence)
+            guard !mp3Data.isEmpty else { continue }
+            
+            print("🎵 [EdgeTTS] Sentence \(index+1)/\(sentences.count): \(mp3Data.count) mp3 bytes")
+            try await Self.playMP3Data(mp3Data)
+        }
+    }
+    
+    /// 단일 텍스트 → mp3 Data (WebSocket 1회)
+    private func synthesizeToMP3(_ text: String) async throws -> Data {
         var mp3Data = Data()
         let stream = collectAudioChunks(from: text)
         for try await chunk in stream {
             mp3Data.append(chunk)
         }
-        guard !mp3Data.isEmpty else {
-            throw EdgeTTSError.synthesisError("No audio data received")
-        }
-        try await Self.playMP3Data(mp3Data)
+        return mp3Data
     }
     
     // MARK: - Voice List
