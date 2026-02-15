@@ -14,13 +14,14 @@ public protocol TTSAudioProvider {
 public enum TTSEngine: String, CaseIterable {
     case gemini = "Gemini (Cloud)"
     case supertonic = "Supertonic (Local)"
+    case edge = "Edge TTS (Cloud/Free)"
     
     public var displayName: String { rawValue }
     
     public var requiresAPIKey: Bool {
         switch self {
         case .gemini: return true
-        case .supertonic: return false
+        case .supertonic, .edge: return false
         }
     }
 }

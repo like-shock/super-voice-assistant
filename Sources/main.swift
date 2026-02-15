@@ -57,6 +57,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     var streamingPlayer: GeminiStreamingPlayer?
     private var audioCollector: GeminiAudioCollector?
     var supertonicEngine: SupertonicEngine?
+    var edgeTTSEngine: EdgeTTSEngine?
     var currentTTSEngine: TTSEngine = .gemini
     private var isCurrentlyPlaying = false
     var currentStreamingTask: Task<Void, Never>?
@@ -90,6 +91,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                 }
             case .supertonic:
                 initSupertonic()
+            case .edge:
+                initEdgeTTS()
             }
         } else {
             print("⚠️ Streaming TTS requires macOS 14.0 or later")
@@ -287,6 +290,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
             return audioCollector
         case .supertonic:
             return supertonicEngine
+        case .edge:
+            return edgeTTSEngine
         }
     }
     
@@ -311,6 +316,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         }
     }
     
+    /// Edge TTS 엔진 초기화
+    func initEdgeTTS() {
+        let voice = UserDefaults.standard.string(forKey: "edgeTTSVoice") ?? "ko-KR-SunHiNeural"
+        let rate = UserDefaults.standard.string(forKey: "edgeTTSRate") ?? "+0%"
+        
+        if #available(macOS 14.0, *) {
+            edgeTTSEngine = EdgeTTSEngine(voiceName: voice, rate: rate)
+            streamingPlayer = GeminiStreamingPlayer(sampleRate: 24000, playbackSpeed: 1.0)
+            print("✅ Edge TTS initialized (voice: \(voice))")
+        }
+    }
+    
     /// TTS 엔진 전환
     func switchTTSEngine(to engine: TTSEngine) {
         guard engine != currentTTSEngine else { return }
@@ -324,6 +341,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         case .supertonic:
             supertonicEngine?.unload()
             supertonicEngine = nil
+        case .edge:
+            edgeTTSEngine = nil
         }
         
         currentTTSEngine = engine
@@ -340,6 +359,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                 }
             case .supertonic:
                 initSupertonic()
+            case .edge:
+                initEdgeTTS()
             }
         }
     }

@@ -41,6 +41,9 @@ struct TTSSettingsSection: View {
             // Supertonic card
             supertonicCard
             
+            // Edge TTS card
+            edgeTTSCard
+            
             // Gemini card
             geminiCard
         }
@@ -148,6 +151,117 @@ struct TTSSettingsSection: View {
         .contentShape(Rectangle())
         .onTapGesture {
             switchEngine(to: .supertonic)
+        }
+    }
+    
+    // MARK: - Edge TTS Card
+    
+    @AppStorage("edgeTTSVoice") private var edgeVoice: String = "ko-KR-SunHiNeural"
+    
+    private static let edgeVoicePresets: [(name: String, id: String)] = [
+        ("선히 (여성)", "ko-KR-SunHiNeural"),
+        ("인준 (남성)", "ko-KR-InJoonNeural"),
+        ("유진 (여성)", "ko-KR-YuJinNeural"),
+        ("봉진 (남성)", "ko-KR-BongJinNeural"),
+        ("지민 (여성)", "ko-KR-JiMinNeural"),
+        ("국민 (남성)", "ko-KR-GookMinNeural"),
+        ("Jenny (EN-F)", "en-US-JennyNeural"),
+        ("Guy (EN-M)", "en-US-GuyNeural"),
+        ("Xiaoxiao (ZH-F)", "zh-CN-XiaoxiaoNeural"),
+    ]
+    
+    private var edgeTTSCard: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack {
+                Image(systemName: "globe")
+                    .foregroundColor(.purple)
+                VStack(alignment: .leading, spacing: 2) {
+                    Text("Edge TTS (Cloud/Free)")
+                        .font(.system(.body, design: .default, weight: .semibold))
+                    Text("Microsoft Edge · No API Key · 400+ voices")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                Spacer()
+                
+                if currentEngine == .edge {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.purple)
+                }
+            }
+            
+            if currentEngine == .edge {
+                Divider()
+                
+                HStack(spacing: 16) {
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Voice")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Picker("", selection: $edgeVoice) {
+                            ForEach(Self.edgeVoicePresets, id: \.id) { preset in
+                                Text(preset.name).tag(preset.id)
+                            }
+                        }
+                        .labelsHidden()
+                        .frame(width: 150)
+                        .onChange(of: edgeVoice) { newValue in
+                            applyEdgeVoiceChange(newValue)
+                        }
+                    }
+                }
+            }
+        }
+        .padding(12)
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(currentEngine == .edge ? Color.purple.opacity(0.08) : Color.clear)
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(currentEngine == .edge ? Color.purple.opacity(0.3) : Color.gray.opacity(0.2), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            switchEngine(to: .edge)
+        }
+    }
+    
+    private func applyEdgeVoiceChange(_ voice: String) {
+        if let appDelegate = NSApplication.shared.delegate as? AppDelegate,
+           let engine = appDelegate.edgeTTSEngine {
+            engine.setVoice(voice)
+            previewEdgeVoice()
+        }
+    }
+    
+    private func previewEdgeVoice() {
+        guard let appDelegate = NSApplication.shared.delegate as? AppDelegate,
+              let engine = appDelegate.edgeTTSEngine else { return }
+        
+        let sampleText: String
+        if edgeVoice.hasPrefix("ko-") {
+            sampleText = "안녕하세요, 이 목소리는 어떤가요?"
+        } else if edgeVoice.hasPrefix("zh-") {
+            sampleText = "你好，这个声音怎么样？"
+        } else {
+            sampleText = "Hello, how does this voice sound?"
+        }
+        
+        appDelegate.stopCurrentPlayback()
+        
+        if #available(macOS 14.0, *),
+           let player = appDelegate.streamingPlayer {
+            appDelegate.currentStreamingTask?.cancel()
+            appDelegate.currentStreamingTask = Task {
+                do {
+                    try await player.playText(sampleText, provider: engine)
+                } catch is CancellationError {
+                } catch {
+                    print("⚠️ Edge TTS preview failed: \(error)")
+                }
+            }
         }
     }
     
