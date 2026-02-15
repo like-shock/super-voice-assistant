@@ -56,7 +56,8 @@ let package = Package(
         .package(url: "https://github.com/sindresorhus/KeyboardShortcuts", exact: "1.8.0"),
         .package(url: "https://github.com/argmaxinc/WhisperKit", from: "0.13.0"),
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.7.9"),
-        .package(url: "https://github.com/microsoft/onnxruntime-swift-package-manager.git", from: "1.16.0")
+        .package(url: "https://github.com/microsoft/onnxruntime-swift-package-manager.git", from: "1.16.0"),
+        .package(url: "https://github.com/daltoniam/Starscream", from: "4.0.0")
     ],
     targets: [
         .target(
@@ -64,7 +65,8 @@ let package = Package(
             dependencies: [
                 "WhisperKit",
                 "FluidAudio",
-                .product(name: "onnxruntime", package: "onnxruntime-swift-package-manager")
+                .product(name: "onnxruntime", package: "onnxruntime-swift-package-manager"),
+                "Starscream"
             ],
             path: "SharedSources"),
         .executableTarget(
