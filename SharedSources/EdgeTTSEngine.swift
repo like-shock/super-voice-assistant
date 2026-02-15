@@ -13,7 +13,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
     private var volume: String
     
     // Edge TTS constants
-    private static let chromiumVersion = "130.0.2849.68"
+    private static let chromiumVersion = "143.0.3650.75"
     private static let trustedClientToken = "6A5AA1D4EAFF4E9FB37E23D68491D6F4"
     private static let windowsFileTimeEpoch: Int64 = 11_644_473_600
     
@@ -50,7 +50,9 @@ public class EdgeTTSEngine: TTSAudioProvider {
         continuation: AsyncThrowingStream<Data, Error>.Continuation
     ) async throws {
         let token = Self.generateSecMsGecToken()
-        let urlString = "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=\(Self.trustedClientToken)&Sec-MS-GEC=\(token)&Sec-MS-GEC-Version=1-\(Self.chromiumVersion)"
+        let connectionId = UUID().uuidString.replacingOccurrences(of: "-", with: "")
+        let chromiumMajor = Self.chromiumVersion.split(separator: ".").first ?? "143"
+        let urlString = "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=\(Self.trustedClientToken)&ConnectionId=\(connectionId)&Sec-MS-GEC=\(token)&Sec-MS-GEC-Version=1-\(Self.chromiumVersion)"
         
         guard let url = URL(string: urlString) else {
             throw EdgeTTSError.invalidURL
@@ -59,13 +61,15 @@ public class EdgeTTSEngine: TTSAudioProvider {
         let session = URLSession.shared
         var request = URLRequest(url: url)
         request.setValue(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/\(Self.chromiumVersion) Safari/537.36 Edg/\(Self.chromiumVersion)",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/\(chromiumMajor).0.0.0 Safari/537.36 Edg/\(chromiumMajor).0.0.0",
             forHTTPHeaderField: "User-Agent"
         )
         request.setValue(
             "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
             forHTTPHeaderField: "Origin"
         )
+        request.setValue("no-cache", forHTTPHeaderField: "Pragma")
+        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
         request.setValue(
             "muid=\(Self.generateMUID());",
             forHTTPHeaderField: "Cookie"
