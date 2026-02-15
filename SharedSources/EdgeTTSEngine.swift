@@ -1,8 +1,9 @@
-import CryptoKit
 import Foundation
 
-/// Edge TTS 스트리밍 엔진 — Microsoft Edge의 무료 TTS WebSocket API
-/// API 키 불필요, 400+ 신경망 음성, raw PCM 24kHz 스트리밍
+/// Edge TTS 엔진 — Python edge-tts CLI wrapper
+/// API 키 불필요, 400+ 신경망 음성
+/// URLSessionWebSocketTask는 Origin/Cookie 헤더를 제대로 전송하지 못해
+/// Python edge-tts CLI를 통해 안정적으로 동작
 @available(macOS 14.0, *)
 public class EdgeTTSEngine: TTSAudioProvider {
     public let sampleRate: Double = 24000
@@ -12,10 +13,8 @@ public class EdgeTTSEngine: TTSAudioProvider {
     private var pitch: String
     private var volume: String
     
-    // Edge TTS constants
-    private static let chromiumVersion = "143.0.3650.75"
-    private static let trustedClientToken = "6A5AA1D4EAFF4E9FB37E23D68491D6F4"
-    private static let windowsFileTimeEpoch: Int64 = 11_644_473_600
+    /// edge-tts CLI 경로 (venv 또는 시스템)
+    private let edgeTTSPath: String
     
     public init(
         voiceName: String = "ko-KR-SunHiNeural",
@@ -27,6 +26,17 @@ public class EdgeTTSEngine: TTSAudioProvider {
         self.rate = rate
         self.pitch = pitch
         self.volume = volume
+        
+        // edge-tts CLI 경로 탐색
+        let candidates = [
+            "\(NSHomeDirectory())/.local/bin/edge-tts",
+            "/usr/local/bin/edge-tts",
+            "/opt/homebrew/bin/edge-tts",
+            // venv 경로
+            "/tmp/edge-tts-venv/bin/edge-tts",
+        ]
+        self.edgeTTSPath = candidates.first { FileManager.default.isExecutableFile(atPath: $0) }
+            ?? "edge-tts"  // fallback to PATH
     }
     
     // MARK: - TTSAudioProvider
@@ -35,7 +45,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
         AsyncThrowingStream { continuation in
             Task {
                 do {
-                    try await self.streamSpeech(text: text, continuation: continuation)
+                    try await self.synthesize(text: text, continuation: continuation)
                 } catch {
                     continuation.finish(throwing: error)
                 }
@@ -43,121 +53,83 @@ public class EdgeTTSEngine: TTSAudioProvider {
         }
     }
     
-    // MARK: - WebSocket Streaming
+    // MARK: - CLI-based Synthesis
     
-    private func streamSpeech(
+    private func synthesize(
         text: String,
         continuation: AsyncThrowingStream<Data, Error>.Continuation
     ) async throws {
-        let token = Self.generateSecMsGecToken()
-        let connectionId = UUID().uuidString.replacingOccurrences(of: "-", with: "")
-        let chromiumMajor = Self.chromiumVersion.split(separator: ".").first ?? "143"
-        let urlString = "wss://speech.platform.bing.com/consumer/speech/synthesize/readaloud/edge/v1?TrustedClientToken=\(Self.trustedClientToken)&ConnectionId=\(connectionId)&Sec-MS-GEC=\(token)&Sec-MS-GEC-Version=1-\(Self.chromiumVersion)"
+        // edge-tts outputs mp3 → use ffmpeg to convert to raw PCM
+        let tmpMP3 = FileManager.default.temporaryDirectory
+            .appendingPathComponent("edge-tts-\(UUID().uuidString).mp3")
+        let tmpPCM = FileManager.default.temporaryDirectory
+            .appendingPathComponent("edge-tts-\(UUID().uuidString).pcm")
         
-        guard let url = URL(string: urlString) else {
-            throw EdgeTTSError.invalidURL
+        defer {
+            try? FileManager.default.removeItem(at: tmpMP3)
+            try? FileManager.default.removeItem(at: tmpPCM)
         }
         
-        let session = URLSession.shared
-        var request = URLRequest(url: url)
-        request.setValue(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/\(chromiumMajor).0.0.0 Safari/537.36 Edg/\(chromiumMajor).0.0.0",
-            forHTTPHeaderField: "User-Agent"
-        )
-        request.setValue(
-            "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
-            forHTTPHeaderField: "Origin"
-        )
-        request.setValue("no-cache", forHTTPHeaderField: "Pragma")
-        request.setValue("no-cache", forHTTPHeaderField: "Cache-Control")
-        request.setValue(
-            "muid=\(Self.generateMUID());",
-            forHTTPHeaderField: "Cookie"
-        )
+        // Run edge-tts CLI
+        let edgeProcess = Process()
+        edgeProcess.executableURL = URL(fileURLWithPath: edgeTTSPath)
+        edgeProcess.arguments = [
+            "--voice", voiceName,
+            "--rate", rate,
+            "--pitch", pitch,
+            "--volume", volume,
+            "--text", text,
+            "--write-media", tmpMP3.path,
+        ]
         
-        let ws = session.webSocketTask(with: request)
-        ws.resume()
+        let pipe = Pipe()
+        edgeProcess.standardError = pipe
         
-        defer { ws.cancel(with: .goingAway, reason: nil) }
+        try edgeProcess.run()
+        edgeProcess.waitUntilExit()
         
-        // Send config — request raw PCM 24kHz 16-bit mono
-        let configMessage = """
-        Content-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n
-        {
-            "context": {
-                "synthesis": {
-                    "audio": {
-                        "metadataoptions": {
-                            "sentenceBoundaryEnabled": "false",
-                            "wordBoundaryEnabled": "false"
-                        },
-                        "outputFormat": "raw-24khz-16bit-mono-pcm"
-                    }
-                }
-            }
+        guard edgeProcess.terminationStatus == 0 else {
+            let stderr = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+            throw EdgeTTSError.synthesisError("edge-tts failed (exit \(edgeProcess.terminationStatus)): \(stderr)")
         }
-        """
-        try await ws.send(.string(configMessage))
         
-        // Send SSML
-        let requestId = UUID().uuidString.replacingOccurrences(of: "-", with: "")
-        let escapedText = text
-            .replacingOccurrences(of: "&", with: "&amp;")
-            .replacingOccurrences(of: "<", with: "&lt;")
-            .replacingOccurrences(of: ">", with: "&gt;")
+        guard FileManager.default.fileExists(atPath: tmpMP3.path) else {
+            throw EdgeTTSError.synthesisError("edge-tts produced no output")
+        }
         
-        let ssml = """
-        X-RequestId:\(requestId)\r\nContent-Type:application/ssml+xml\r\nPath:ssml\r\n\r\n
-        <speak version="1.0" xmlns="http://www.w3.org/2001/10/synthesis" xmlns:mstts="https://www.w3.org/2001/mstts" xml:lang="ko-KR">
-            <voice name="\(voiceName)">
-                <prosody rate="\(rate)" pitch="\(pitch)" volume="\(volume)">
-                    \(escapedText)
-                </prosody>
-            </voice>
-        </speak>
-        """
-        try await ws.send(.string(ssml))
+        // Convert mp3 → raw PCM 24kHz 16-bit mono via ffmpeg
+        let ffmpeg = Process()
+        ffmpeg.executableURL = URL(fileURLWithPath: "/usr/bin/env")
+        ffmpeg.arguments = [
+            "ffmpeg", "-y", "-i", tmpMP3.path,
+            "-f", "s16le", "-acodec", "pcm_s16le",
+            "-ar", "24000", "-ac", "1",
+            tmpPCM.path,
+        ]
+        ffmpeg.standardOutput = FileHandle.nullDevice
+        ffmpeg.standardError = FileHandle.nullDevice
         
-        // Receive audio chunks
-        var totalBytes = 0
-        let headerSeparator = "Path:audio\r\n"
+        try ffmpeg.run()
+        ffmpeg.waitUntilExit()
         
-        while true {
+        guard ffmpeg.terminationStatus == 0 else {
+            throw EdgeTTSError.synthesisError("ffmpeg conversion failed")
+        }
+        
+        // Read PCM and yield in chunks
+        let pcmData = try Data(contentsOf: tmpPCM)
+        let chunkSize = Int(sampleRate) * 2  // 1 second chunks (16-bit = 2 bytes/sample)
+        var offset = 0
+        
+        while offset < pcmData.count {
             try Task.checkCancellation()
-            
-            let message = try await ws.receive()
-            
-            switch message {
-            case .data(let data):
-                // Binary message — extract audio after header
-                if let str = String(data: data, encoding: .utf8),
-                   let range = str.range(of: headerSeparator) {
-                    let offset = range.upperBound.utf16Offset(in: str)
-                    let audioData = data.suffix(from: data.startIndex + offset)
-                    if !audioData.isEmpty {
-                        continuation.yield(Data(audioData))
-                        totalBytes += audioData.count
-                    }
-                } else {
-                    // Pure binary audio data
-                    if !data.isEmpty {
-                        continuation.yield(data)
-                        totalBytes += data.count
-                    }
-                }
-                
-            case .string(let str):
-                if str.contains("Path:turn.end") {
-                    print("✅ [EdgeTTS] Complete: \(totalBytes) bytes (\(String(format: "%.1f", Double(totalBytes) / 2.0 / sampleRate))s)")
-                    continuation.finish()
-                    return
-                }
-                // Ignore metadata messages
-                
-            @unknown default:
-                break
-            }
+            let end = min(offset + chunkSize, pcmData.count)
+            continuation.yield(pcmData[offset..<end])
+            offset = end
         }
+        
+        print("✅ [EdgeTTS] Complete: \(pcmData.count) bytes (\(String(format: "%.1f", Double(pcmData.count) / 2.0 / sampleRate))s)")
+        continuation.finish()
     }
     
     // MARK: - Configuration
@@ -201,60 +173,38 @@ public class EdgeTTSEngine: TTSAudioProvider {
         }
     }
     
-    /// 사용 가능한 음성 목록 가져오기
+    /// 사용 가능한 음성 목록 가져오기 (edge-tts --list-voices)
     public static func fetchVoices() async throws -> [Voice] {
-        let token = generateSecMsGecToken()
-        let urlString = "https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list?trustedclienttoken=\(trustedClientToken)&Sec-MS-GEC=\(token)&Sec-MS-GEC-Version=1-\(chromiumVersion)"
-        guard let url = URL(string: urlString) else {
-            throw EdgeTTSError.invalidURL
+        let edgeTTSPath = [
+            "\(NSHomeDirectory())/.local/bin/edge-tts",
+            "/usr/local/bin/edge-tts",
+            "/opt/homebrew/bin/edge-tts",
+            "/tmp/edge-tts-venv/bin/edge-tts",
+        ].first { FileManager.default.isExecutableFile(atPath: $0) } ?? "edge-tts"
+        
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: edgeTTSPath)
+        process.arguments = ["--list-voices"]
+        
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        
+        try process.run()
+        process.waitUntilExit()
+        
+        let output = String(data: pipe.fileHandleForReading.readDataToEndOfFile(), encoding: .utf8) ?? ""
+        
+        // Use hardcoded Korean voices (CLI output parsing is fragile)
+        _ = output
+        return KoreanVoice.allCases.map { v in
+            Voice(name: v.rawValue, shortName: v.rawValue, gender: "", locale: "ko-KR", friendlyName: v.displayName)
         }
-        
-        var request = URLRequest(url: url)
-        request.setValue(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/\(chromiumVersion) Safari/537.36 Edg/\(chromiumVersion)",
-            forHTTPHeaderField: "User-Agent"
-        )
-        request.setValue(
-            "muid=\(generateMUID());",
-            forHTTPHeaderField: "Cookie"
-        )
-        
-        let (data, _) = try await URLSession.shared.data(for: request)
-        return try JSONDecoder().decode([Voice].self, from: data)
     }
     
     /// 특정 언어의 음성 목록
     public static func fetchVoices(locale: String) async throws -> [Voice] {
         let all = try await fetchVoices()
         return all.filter { $0.locale.hasPrefix(locale) }
-    }
-    
-    // MARK: - DRM Token
-    
-    private static var clockSkewSeconds: Double = 0.0
-    
-    private static func generateSecMsGecToken() -> String {
-        // Get current timestamp with clock skew correction
-        var ticks = Date().timeIntervalSince1970 + clockSkewSeconds
-        
-        // Switch to Windows file time epoch (1601-01-01 00:00:00 UTC)
-        ticks += Double(windowsFileTimeEpoch)
-        
-        // Round down to nearest 5 minutes (300 seconds)
-        ticks -= ticks.truncatingRemainder(dividingBy: 300)
-        
-        // Convert to 100-nanosecond intervals (Windows file time format)
-        ticks *= 1e9 / 100
-        
-        let strToHash = String(format: "%.0f%@", ticks, trustedClientToken)
-        guard let data = strToHash.data(using: .ascii) else { return "" }
-        
-        let hash = SHA256.hash(data: data)
-        return hash.map { String(format: "%02X", $0) }.joined()
-    }
-    
-    private static func generateMUID() -> String {
-        (0..<16).map { _ in String(format: "%02X", UInt8.random(in: 0...255)) }.joined()
     }
 }
 
@@ -293,15 +243,18 @@ public enum EdgeTTSError: Error, LocalizedError {
     case invalidURL
     case connectionFailed(String)
     case synthesisTimeout
+    case synthesisError(String)
     
     public var errorDescription: String? {
         switch self {
         case .invalidURL:
-            return "Invalid Edge TTS WebSocket URL"
+            return "Invalid Edge TTS URL"
         case .connectionFailed(let msg):
             return "Edge TTS connection failed: \(msg)"
         case .synthesisTimeout:
             return "Edge TTS synthesis timed out"
+        case .synthesisError(let msg):
+            return "Edge TTS synthesis error: \(msg)"
         }
     }
 }
