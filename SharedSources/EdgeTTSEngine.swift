@@ -14,6 +14,9 @@ public class EdgeTTSEngine: TTSAudioProvider {
     private var pitch: String
     private var volume: String
     
+    /// Retain active WebSocket handler to prevent ARC deallocation
+    private var activeHandler: AnyObject?
+    
     // Edge TTS constants
     private static let chromiumFullVersion = "143.0.3650.75"
     private static let chromiumMajorVersion = "143"
@@ -89,8 +92,12 @@ public class EdgeTTSEngine: TTSAudioProvider {
                 volume: volume,
                 sampleRate: sampleRate,
                 audioContinuation: continuation,
-                completionContinuation: outer
+                completionContinuation: outer,
+                onComplete: { [weak self] in
+                    self?.activeHandler = nil
+                }
             )
+            self.activeHandler = handler
             handler.connect()
         }
     }
@@ -205,6 +212,7 @@ private class EdgeTTSWebSocketHandler: WebSocketDelegate {
     private var completionContinuation: CheckedContinuation<Void, Error>?
     private var totalBytes = 0
     private var completed = false
+    private let onComplete: () -> Void
     
     init(
         request: URLRequest,
@@ -215,7 +223,8 @@ private class EdgeTTSWebSocketHandler: WebSocketDelegate {
         volume: String,
         sampleRate: Double,
         audioContinuation: AsyncThrowingStream<Data, Error>.Continuation,
-        completionContinuation: CheckedContinuation<Void, Error>
+        completionContinuation: CheckedContinuation<Void, Error>,
+        onComplete: @escaping () -> Void
     ) {
         self.voiceName = voiceName
         self.text = text
@@ -225,6 +234,7 @@ private class EdgeTTSWebSocketHandler: WebSocketDelegate {
         self.sampleRate = sampleRate
         self.audioContinuation = audioContinuation
         self.completionContinuation = completionContinuation
+        self.onComplete = onComplete
         self.socket = WebSocket(request: request)
         self.socket?.delegate = self
     }
@@ -305,6 +315,7 @@ private class EdgeTTSWebSocketHandler: WebSocketDelegate {
             completionContinuation?.resume()
         }
         completionContinuation = nil
+        onComplete()
     }
 }
 
