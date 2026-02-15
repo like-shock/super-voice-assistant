@@ -301,11 +301,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         supertonicEngine = SupertonicEngine(voiceName: voice, lang: lang, speed: actualSpeed)
         streamingPlayer = GeminiStreamingPlayer(sampleRate: 44100, playbackSpeed: 1.0)  // Supertonic은 자체 속도 제어
         
-        do {
-            try supertonicEngine?.load()
-            print("✅ Supertonic native TTS initialized")
-        } catch {
-            print("❌ Supertonic init failed: \(error)")
+        // ONNX Runtime 모델 로딩을 백그라운드에서 수행 (메인 스레드 블로킹 방지)
+        Task.detached(priority: .userInitiated) { [weak self] in
+            do {
+                try self?.supertonicEngine?.load()
+                print("✅ Supertonic native TTS initialized")
+            } catch {
+                print("❌ Supertonic init failed: \(error)")
+            }
         }
     }
     
