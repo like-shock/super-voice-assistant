@@ -265,18 +265,11 @@ class ModelStateManager: ObservableObject {
             
             do {
                 print("🎙️ [WhisperKit] Loading model: \(modelName) from \(modelPath.path)")
-                // Use cpuAndGPU to avoid ANE specialization on every launch.
-                // Ad-hoc signed SPM binaries don't get stable CoreML e5rt cache keys,
-                // so ANE specialization (.cpuAndNeuralEngine) reruns every time (~minutes).
-                let computeOptions = ModelComputeOptions(
-                    melCompute: .cpuAndGPU,
-                    audioEncoderCompute: .cpuAndGPU,
-                    textDecoderCompute: .cpuAndGPU,
-                    prefillCompute: .cpuOnly
-                )
+                // Use ANE for best inference performance.
+                // Requires stable codesign identity for CoreML e5rt cache reuse
+                // (run ./setup-codesign.sh + ./build-and-run.sh).
                 let whisperKit = try await WhisperKit(
                     modelFolder: modelPath.path,
-                    computeOptions: computeOptions,
                     verbose: true,
                     logLevel: .info
                 )

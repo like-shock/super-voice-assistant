@@ -4,7 +4,7 @@
 
 set -e
 
-CERT_NAME="SuperVoiceAssistant"
+CERT_NAME="SuperVoiceAssistantDev"
 KEYCHAIN="login.keychain-db"
 
 # Check if certificate already exists
