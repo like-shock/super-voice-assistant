@@ -227,6 +227,41 @@ struct TTSSettingsSection: View {
         if let appDelegate = NSApplication.shared.delegate as? AppDelegate,
            let engine = appDelegate.supertonicEngine {
             try? engine.setVoice(voice)
+            previewVoice()
+        }
+    }
+    
+    /// 현재 설정으로 짧은 샘플 재생
+    private func previewVoice() {
+        guard let appDelegate = NSApplication.shared.delegate as? AppDelegate,
+              let engine = appDelegate.supertonicEngine,
+              engine.isLoaded else { return }
+        
+        let sampleText: String
+        switch lang {
+        case "ko": sampleText = "안녕하세요, 이 목소리는 어떤가요?"
+        case "en": sampleText = "Hello, how does this voice sound?"
+        case "es": sampleText = "Hola, ¿cómo suena esta voz?"
+        case "pt": sampleText = "Olá, como soa esta voz?"
+        case "fr": sampleText = "Bonjour, comment trouvez-vous cette voix?"
+        default: sampleText = "Hello, how does this voice sound?"
+        }
+        
+        // Cancel previous preview if playing
+        appDelegate.stopCurrentPlayback()
+        
+        if #available(macOS 14.0, *),
+           let player = appDelegate.streamingPlayer {
+            appDelegate.currentStreamingTask?.cancel()
+            appDelegate.currentStreamingTask = Task {
+                do {
+                    try await player.playText(sampleText, provider: engine)
+                } catch is CancellationError {
+                    // Cancelled, ignore
+                } catch {
+                    print("⚠️ Voice preview failed: \(error)")
+                }
+            }
         }
     }
     

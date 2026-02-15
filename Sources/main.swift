@@ -54,12 +54,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     private var videoProcessingTimer: Timer?
     private var audioManager: AudioTranscriptionManager!
     private var geminiAudioManager: GeminiAudioRecordingManager!
-    private var streamingPlayer: GeminiStreamingPlayer?
+    var streamingPlayer: GeminiStreamingPlayer?
     private var audioCollector: GeminiAudioCollector?
     var supertonicEngine: SupertonicEngine?
     var currentTTSEngine: TTSEngine = .gemini
     private var isCurrentlyPlaying = false
-    private var currentStreamingTask: Task<Void, Never>?
+    var currentStreamingTask: Task<Void, Never>?
     private var screenRecorder = ScreenRecorder()
     private var currentVideoURL: URL?
     private var videoTranscriber = VideoTranscriber()
