@@ -66,6 +66,10 @@ public class EdgeTTSEngine: TTSAudioProvider {
             "chrome-extension://jdiccldimpdaibmpdkjnbmckianbfold",
             forHTTPHeaderField: "Origin"
         )
+        request.setValue(
+            "muid=\(Self.generateMUID());",
+            forHTTPHeaderField: "Cookie"
+        )
         
         let ws = session.webSocketTask(with: request)
         ws.resume()
@@ -195,15 +199,20 @@ public class EdgeTTSEngine: TTSAudioProvider {
     
     /// 사용 가능한 음성 목록 가져오기
     public static func fetchVoices() async throws -> [Voice] {
-        let urlString = "https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list?trustedclienttoken=\(trustedClientToken)"
+        let token = generateSecMsGecToken()
+        let urlString = "https://speech.platform.bing.com/consumer/speech/synthesize/readaloud/voices/list?trustedclienttoken=\(trustedClientToken)&Sec-MS-GEC=\(token)&Sec-MS-GEC-Version=1-\(chromiumVersion)"
         guard let url = URL(string: urlString) else {
             throw EdgeTTSError.invalidURL
         }
         
         var request = URLRequest(url: url)
         request.setValue(
-            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+            "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/\(chromiumVersion) Safari/537.36 Edg/\(chromiumVersion)",
             forHTTPHeaderField: "User-Agent"
+        )
+        request.setValue(
+            "muid=\(generateMUID());",
+            forHTTPHeaderField: "Cookie"
         )
         
         let (data, _) = try await URLSession.shared.data(for: request)
@@ -218,16 +227,30 @@ public class EdgeTTSEngine: TTSAudioProvider {
     
     // MARK: - DRM Token
     
+    private static var clockSkewSeconds: Double = 0.0
+    
     private static func generateSecMsGecToken() -> String {
-        let currentTime = Int64(Date().timeIntervalSince1970)
-        let ticks = (currentTime + windowsFileTimeEpoch) * 10_000_000
-        let roundedTicks = ticks - (ticks % 3_000_000_000)
+        // Get current timestamp with clock skew correction
+        var ticks = Date().timeIntervalSince1970 + clockSkewSeconds
         
-        let strToHash = "\(roundedTicks)\(trustedClientToken)"
+        // Switch to Windows file time epoch (1601-01-01 00:00:00 UTC)
+        ticks += Double(windowsFileTimeEpoch)
+        
+        // Round down to nearest 5 minutes (300 seconds)
+        ticks -= ticks.truncatingRemainder(dividingBy: 300)
+        
+        // Convert to 100-nanosecond intervals (Windows file time format)
+        ticks *= 1e9 / 100
+        
+        let strToHash = String(format: "%.0f%@", ticks, trustedClientToken)
         guard let data = strToHash.data(using: .ascii) else { return "" }
         
         let hash = SHA256.hash(data: data)
         return hash.map { String(format: "%02X", $0) }.joined()
+    }
+    
+    private static func generateMUID() -> String {
+        (0..<16).map { _ in String(format: "%02X", UInt8.random(in: 0...255)) }.joined()
     }
 }
 
