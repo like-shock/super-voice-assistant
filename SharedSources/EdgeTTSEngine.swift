@@ -400,23 +400,13 @@ public extension EdgeTTSEngine {
     enum KoreanVoice: String, CaseIterable {
         case sunHi = "ko-KR-SunHiNeural"
         case inJoon = "ko-KR-InJoonNeural"
-        case bonJin = "ko-KR-BongJinNeural"
-        case gookMin = "ko-KR-GookMinNeural"
-        case jiMin = "ko-KR-JiMinNeural"
-        case seokHo = "ko-KR-SeoHyeonNeural"
-        case sunHyeon = "ko-KR-SoonBokNeural"
-        case yuJin = "ko-KR-YuJinNeural"
+        case hyunsu = "ko-KR-HyunsuMultilingualNeural"
         
         public var displayName: String {
             switch self {
             case .sunHi: return "선히 (여성)"
             case .inJoon: return "인준 (남성)"
-            case .bonJin: return "봉진 (남성)"
-            case .gookMin: return "국민 (남성)"
-            case .jiMin: return "지민 (여성)"
-            case .seokHo: return "서현 (여성/아이)"
-            case .sunHyeon: return "순복 (여성/노인)"
-            case .yuJin: return "유진 (여성)"
+            case .hyunsu: return "현수 (남성/다국어)"
             }
         }
     }
