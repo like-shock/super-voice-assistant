@@ -96,7 +96,7 @@ class ModelStateManager: ObservableObject {
         var newDownloadedModels: Set<String> = []
         let modelManager = WhisperModelManager.shared
         
-        // Process each model in parallel for faster checking
+        // Process each model — file-based check only (no WhisperKit load)
         await withTaskGroup(of: (String, Bool).self) { group in
             for model in ModelData.availableModels {
                 let whisperKitModelName = model.whisperKitModelName
@@ -110,27 +110,23 @@ class ModelStateManager: ObservableObject {
                     
                     // Check if we have metadata marking it as complete
                     if modelManager.isModelDownloaded(whisperKitModelName) {
-                        // Trust our metadata if it says complete
                         return (model.name, true)
                     }
                     
-                    // Try to load the model with WhisperKit to validate it's complete
-                    do {
-                        let _ = try await WhisperKit(
-                            modelFolder: modelPath.path,
-                            verbose: false,
-                            logLevel: .error,
-                            load: true
-                        )
-                        
-                        // If loading succeeded, mark it in our manager
+                    // No metadata — check for essential .mlmodelc files instead of full load
+                    let essentialModels = ["AudioEncoder.mlmodelc", "TextDecoder.mlmodelc", "MelSpectrogram.mlmodelc"]
+                    let hasAllModels = essentialModels.allSatisfy { name in
+                        FileManager.default.fileExists(atPath: modelPath.appendingPathComponent(name).path)
+                    }
+                    
+                    if hasAllModels {
+                        // Mark as downloaded so next check is instant
                         modelManager.markModelAsDownloaded(whisperKitModelName)
                         return (model.name, true)
-                    } catch {
-                        // Model exists but is incomplete or corrupted
-                        print("Model \(model.name) exists but is incomplete")
-                        return (model.name, false)
                     }
+                    
+                    print("Model \(model.name) exists but missing essential files")
+                    return (model.name, false)
                 }
             }
             
@@ -271,8 +267,8 @@ class ModelStateManager: ObservableObject {
                 print("🎙️ [WhisperKit] Loading model: \(modelName) from \(modelPath.path)")
                 let whisperKit = try await WhisperKit(
                     modelFolder: modelPath.path,
-                    verbose: false,
-                    logLevel: .error
+                    verbose: true,
+                    logLevel: .info
                 )
                 
                 if Task.isCancelled {
