@@ -617,8 +617,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                             notification.informativeText = "Starting synthesis: \(copiedText.prefix(50))\(copiedText.count > 50 ? "..." : "")"
                             NSUserNotificationCenter.default.deliver(notification)
                             
-                            // Stream audio using current TTS provider
-                            try await streamingPlayer.playText(copiedText, provider: provider)
+                            // Edge TTS: mp3 direct playback, others: PCM streaming
+                            if let edgeEngine = self?.edgeTTSEngine, self?.currentTTSEngine == .edge {
+                                try await edgeEngine.playText(copiedText)
+                            } else {
+                                try await streamingPlayer.playText(copiedText, provider: provider)
+                            }
                             
                             // Check if task was cancelled
                             if Task.isCancelled {

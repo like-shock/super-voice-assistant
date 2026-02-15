@@ -248,12 +248,11 @@ struct TTSSettingsSection: View {
         
         appDelegate.stopCurrentPlayback()
         
-        if #available(macOS 14.0, *),
-           let player = appDelegate.streamingPlayer {
+        if #available(macOS 14.0, *) {
             appDelegate.currentStreamingTask?.cancel()
             appDelegate.currentStreamingTask = Task {
                 do {
-                    try await player.playText(sampleText, provider: engine)
+                    try await engine.playText(sampleText)
                 } catch is CancellationError {
                 } catch {
                     print("⚠️ Edge TTS preview failed: \(error)")
