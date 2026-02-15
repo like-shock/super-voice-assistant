@@ -43,6 +43,9 @@ let package = Package(
             name: "TestSentenceSplitter",
             targets: ["TestSentenceSplitter"]),
         .executable(
+            name: "TestTTSEngines",
+            targets: ["TestTTSEngines"]),
+        .executable(
             name: "RecordScreen",
             targets: ["RecordScreen"]),
         .executable(
@@ -117,6 +120,10 @@ let package = Package(
             name: "TestSentenceSplitter",
             dependencies: ["SharedModels"],
             path: "tests/test-sentence-splitter"),
+        .executableTarget(
+            name: "TestTTSEngines",
+            dependencies: ["SharedModels"],
+            path: "tests/test-tts-engines"),
         .executableTarget(
             name: "RecordScreen",
             dependencies: [],
