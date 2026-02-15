@@ -1,3 +1,4 @@
+import AVFoundation
 import CryptoKit
 import Foundation
 import Starscream
@@ -195,6 +196,65 @@ public class EdgeTTSEngine: TTSAudioProvider {
     private static func generateConnectionId() -> String {
         UUID().uuidString.replacingOccurrences(of: "-", with: "")
     }
+    
+    // MARK: - MP3 to PCM Conversion
+    
+    fileprivate static func convertMP3ToPCM(mp3Data: Data, targetSampleRate: Double) throws -> Data {
+        // Write mp3 to temp file (AVAudioFile needs file URL)
+        let tmpMP3 = FileManager.default.temporaryDirectory
+            .appendingPathComponent("edge-tts-\(UUID().uuidString).mp3")
+        defer { try? FileManager.default.removeItem(at: tmpMP3) }
+        try mp3Data.write(to: tmpMP3)
+        
+        let audioFile = try AVAudioFile(forReading: tmpMP3)
+        guard let inputFormat = AVAudioFormat(
+            commonFormat: .pcmFormatFloat32,
+            sampleRate: audioFile.processingFormat.sampleRate,
+            channels: 1,
+            interleaved: false
+        ) else {
+            throw EdgeTTSError.synthesisError("Failed to create input format")
+        }
+        
+        let outputFormat = AVAudioFormat(
+            commonFormat: .pcmFormatInt16,
+            sampleRate: targetSampleRate,
+            channels: 1,
+            interleaved: true
+        )!
+        
+        // Read all frames
+        let frameCount = AVAudioFrameCount(audioFile.length)
+        guard let inputBuffer = AVAudioPCMBuffer(pcmFormat: audioFile.processingFormat, frameCapacity: frameCount) else {
+            throw EdgeTTSError.synthesisError("Failed to create input buffer")
+        }
+        try audioFile.read(into: inputBuffer)
+        
+        // Convert to target format
+        guard let converter = AVAudioConverter(from: inputBuffer.format, to: outputFormat) else {
+            throw EdgeTTSError.synthesisError("Failed to create audio converter")
+        }
+        
+        let outputFrameCount = AVAudioFrameCount(Double(frameCount) * targetSampleRate / audioFile.processingFormat.sampleRate)
+        guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: outputFrameCount) else {
+            throw EdgeTTSError.synthesisError("Failed to create output buffer")
+        }
+        
+        var error: NSError?
+        converter.convert(to: outputBuffer, error: &error) { _, outStatus in
+            outStatus.pointee = .haveData
+            return inputBuffer
+        }
+        
+        if let error = error {
+            throw EdgeTTSError.synthesisError("Conversion error: \(error)")
+        }
+        
+        // Extract raw PCM bytes
+        let int16Ptr = outputBuffer.int16ChannelData![0]
+        let byteCount = Int(outputBuffer.frameLength) * 2
+        return Data(bytes: int16Ptr, count: byteCount)
+    }
 }
 
 // MARK: - Starscream WebSocket Handler
@@ -213,6 +273,7 @@ private class EdgeTTSWebSocketHandler: WebSocketDelegate {
     private var totalBytes = 0
     private var completed = false
     private let onComplete: () -> Void
+    private var mp3Buffer = Data()
     
     init(
         request: URLRequest,
@@ -250,21 +311,35 @@ private class EdgeTTSWebSocketHandler: WebSocketDelegate {
             
         case .text(let str):
             if str.contains("Path:turn.end") {
-                print("✅ [EdgeTTS] Complete: \(totalBytes) bytes (\(String(format: "%.1f", Double(totalBytes) / 2.0 / sampleRate))s)")
-                finish(nil)
+                print("✅ [EdgeTTS] Received \(totalBytes) mp3 bytes, converting to PCM...")
+                // Convert accumulated mp3 → PCM and yield
+                do {
+                    let pcmData = try EdgeTTSEngine.convertMP3ToPCM(mp3Data: mp3Buffer, targetSampleRate: sampleRate)
+                    // Yield in 1-second chunks for smooth playback
+                    let chunkSize = Int(sampleRate) * 2  // 16-bit = 2 bytes/sample
+                    var offset = 0
+                    while offset < pcmData.count {
+                        let end = min(offset + chunkSize, pcmData.count)
+                        audioContinuation.yield(pcmData[offset..<end])
+                        offset = end
+                    }
+                    print("✅ [EdgeTTS] Complete: \(pcmData.count) PCM bytes (\(String(format: "%.1f", Double(pcmData.count) / 2.0 / sampleRate))s)")
+                    finish(nil)
+                } catch {
+                    print("❌ [EdgeTTS] MP3→PCM conversion failed: \(error)")
+                    finish(error)
+                }
             }
             
         case .binary(let data):
-            // Binary message — extract audio after "Path:audio\r\n" header
+            // Binary message — extract mp3 audio after "Path:audio\r\n" header
             let headerTag = "Path:audio\r\n"
-            if let headerData = headerTag.data(using: .utf8) {
-                // Search for header in binary data
-                if let range = data.range(of: headerData) {
-                    let audioData = data.suffix(from: range.upperBound)
-                    if !audioData.isEmpty {
-                        audioContinuation.yield(Data(audioData))
-                        totalBytes += audioData.count
-                    }
+            if let headerData = headerTag.data(using: .utf8),
+               let range = data.range(of: headerData) {
+                let audioData = data.suffix(from: range.upperBound)
+                if !audioData.isEmpty {
+                    mp3Buffer.append(contentsOf: audioData)
+                    totalBytes += audioData.count
                 }
             }
             
@@ -287,8 +362,8 @@ private class EdgeTTSWebSocketHandler: WebSocketDelegate {
     }
     
     private func sendConfig() {
-        // Send speech config
-        let configMessage = "Content-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n{\"context\":{\"synthesis\":{\"audio\":{\"metadataoptions\":{\"sentenceBoundaryEnabled\":\"false\",\"wordBoundaryEnabled\":\"false\"},\"outputFormat\":\"raw-24khz-16bit-mono-pcm\"}}}}"
+        // Send speech config — use mp3 format (raw PCM no longer supported by Edge)
+        let configMessage = "Content-Type:application/json; charset=utf-8\r\nPath:speech.config\r\n\r\n{\"context\":{\"synthesis\":{\"audio\":{\"metadataoptions\":{\"sentenceBoundaryEnabled\":\"false\",\"wordBoundaryEnabled\":\"false\"},\"outputFormat\":\"audio-24khz-48kbitrate-mono-mp3\"}}}}"
         socket?.write(string: configMessage)
         
         // Send SSML
