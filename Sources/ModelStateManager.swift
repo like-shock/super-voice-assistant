@@ -246,14 +246,16 @@ class ModelStateManager: ObservableObject {
         
         guard let modelInfo = ModelData.availableModels.first(where: { $0.name == modelName }) else {
             print("Model info not found for: \(modelName)")
+            currentLoadingTask = nil
             return
         }
-        
+
         let whisperKitModelName = modelInfo.whisperKitModelName
         let modelPath = getModelPath(for: whisperKitModelName)
-        
+
         guard WhisperModelManager.shared.isModelDownloaded(whisperKitModelName) else {
             print("Model \(modelName) is not downloaded")
+            currentLoadingTask = nil
             return
         }
         
@@ -292,6 +294,16 @@ class ModelStateManager: ObservableObject {
         // Do NOT await task.value here — that would deadlock MainActor
     }
 
+    /// Loads the model and waits for completion. Safe to call from @MainActor context.
+    /// Internally awaits off MainActor to prevent CoreML deadlock.
+    func loadModelAndWait(_ modelName: String) async {
+        loadModel(modelName)
+        guard let task = currentLoadingTask else { return }
+        // Await off MainActor — CoreML dispatches to MainActor during compilation,
+        // so we must yield MainActor while waiting.
+        let _ = await Task.detached { await task.value }.value
+    }
+
     // MARK: - Parakeet Model Loading
 
     func loadParakeetModel() async {
@@ -313,9 +325,10 @@ class ModelStateManager: ObservableObject {
         parakeetLoadingState = isAlreadyDownloaded ? .loading : .downloading
         print("🦜 [Parakeet] Loading model: \(modelName) from \(modelPath.path)")
 
-        // Create new loading task
-        let task = Task { () -> Void in
-            // Check if cancelled before starting
+        // Load off MainActor to prevent CoreML deadlock — CoreML dispatches
+        // to MainActor internally during model compilation.
+        let version = parakeetVersion
+        let task = Task.detached(priority: .userInitiated) { () -> Void in
             if Task.isCancelled {
                 print("Parakeet model loading cancelled")
                 return
@@ -323,24 +336,22 @@ class ModelStateManager: ObservableObject {
 
             do {
                 let transcriber = ParakeetTranscriber()
-                try await transcriber.loadModel(version: parakeetVersion)
+                try await transcriber.loadModel(version: version)
 
-                // Check if cancelled after loading
                 if Task.isCancelled {
                     print("Parakeet model loading cancelled after load")
                     await MainActor.run {
-                        parakeetLoadingState = .notDownloaded
+                        ModelStateManager.shared.parakeetLoadingState = .notDownloaded
                     }
                     return
                 }
 
-                // Update state to loaded
                 await MainActor.run {
-                    self.loadedParakeetTranscriber = transcriber
-                    self.parakeetLoadingState = .loaded
+                    ModelStateManager.shared.loadedParakeetTranscriber = transcriber
+                    ModelStateManager.shared.parakeetLoadingState = .loaded
                 }
 
-                print("Parakeet model loaded successfully: \(parakeetVersion.displayName)")
+                print("Parakeet model loaded successfully: \(version.displayName)")
 
             } catch {
                 if Task.isCancelled {
@@ -350,14 +361,15 @@ class ModelStateManager: ObservableObject {
                 }
 
                 await MainActor.run {
-                    parakeetLoadingState = .notDownloaded
-                    loadedParakeetTranscriber = nil
+                    ModelStateManager.shared.parakeetLoadingState = .notDownloaded
+                    ModelStateManager.shared.loadedParakeetTranscriber = nil
                 }
             }
         }
 
         currentParakeetLoadingTask = task
-        await task.value
+        // Await off MainActor — yields MainActor so CoreML can use it freely
+        let _ = await Task.detached { await task.value }.value
     }
 
     /// Unload Parakeet model to free memory

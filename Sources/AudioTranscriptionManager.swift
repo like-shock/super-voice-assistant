@@ -287,15 +287,8 @@ class AudioTranscriptionManager {
         // Load model if not already loaded
         if ModelStateManager.shared.loadedWhisperKit == nil {
             if let selectedModel = ModelStateManager.shared.selectedModel {
-                ModelStateManager.shared.loadModel(selectedModel)
-                // Wait for model to finish loading
-                while ModelStateManager.shared.loadedWhisperKit == nil {
-                    try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
-                    if ModelStateManager.shared.getLoadingState(for: selectedModel) == .downloaded
-                        || ModelStateManager.shared.getLoadingState(for: selectedModel) == .notDownloaded {
-                        break // Loading failed
-                    }
-                }
+                // loadModelAndWait yields MainActor internally, preventing CoreML deadlock
+                await ModelStateManager.shared.loadModelAndWait(selectedModel)
             }
         }
 
@@ -344,7 +337,7 @@ class AudioTranscriptionManager {
             isTranscribing = false
 
             if let firstResult = transcriptionResult.first {
-                var transcription = firstResult.text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
+                let transcription = firstResult.text.trimmingCharacters(in: CharacterSet.whitespacesAndNewlines)
                 handleTranscriptionResult(transcription)
             }
         } catch {
