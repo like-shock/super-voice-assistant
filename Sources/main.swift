@@ -56,6 +56,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     private var geminiAudioManager: GeminiAudioRecordingManager!
     private var streamingPlayer: GeminiStreamingPlayer?
     private var audioCollector: GeminiAudioCollector?
+    private var supertonicDaemon: SupertonicDaemon?
+    private var currentTTSEngine: TTSEngine = .gemini
     private var isCurrentlyPlaying = false
     private var currentStreamingTask: Task<Void, Never>?
     private var screenRecorder = ScreenRecorder()
@@ -66,17 +68,28 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         // Load environment variables
         loadEnvironmentVariables()
         
-        // Initialize streaming TTS components if API key is available
-        if let apiKey = ProcessInfo.processInfo.environment["GEMINI_API_KEY"], !apiKey.isEmpty {
-            if #available(macOS 14.0, *) {
-                streamingPlayer = GeminiStreamingPlayer(playbackSpeed: 1.15)
-                audioCollector = GeminiAudioCollector(apiKey: apiKey)
-                print("✅ Streaming TTS components initialized")
-            } else {
-                print("⚠️ Streaming TTS requires macOS 14.0 or later")
+        // Initialize TTS engine
+        let savedEngine = UserDefaults.standard.string(forKey: "ttsEngine")
+            .flatMap { TTSEngine(rawValue: $0) } ?? .gemini
+        currentTTSEngine = savedEngine
+        
+        if #available(macOS 14.0, *) {
+            switch currentTTSEngine {
+            case .gemini:
+                if let apiKey = ProcessInfo.processInfo.environment["GEMINI_API_KEY"], !apiKey.isEmpty {
+                    streamingPlayer = GeminiStreamingPlayer(sampleRate: 24000, playbackSpeed: 1.15)
+                    audioCollector = GeminiAudioCollector(apiKey: apiKey)
+                    print("✅ Gemini TTS initialized")
+                } else {
+                    print("⚠️ GEMINI_API_KEY not found, falling back to Supertonic")
+                    currentTTSEngine = .supertonic
+                    initSupertonic()
+                }
+            case .supertonic:
+                initSupertonic()
             }
         } else {
-            print("⚠️ GEMINI_API_KEY not found in environment variables")
+            print("⚠️ Streaming TTS requires macOS 14.0 or later")
         }
         
         // Create the status bar item
@@ -262,6 +275,72 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         unifiedWindow?.showWindow(tab: .history)
     }
     
+    // MARK: - TTS Engine Helpers
+    
+    /// 현재 활성 TTS 프로바이더
+    @available(macOS 14.0, *)
+    var currentTTSProvider: TTSAudioProvider? {
+        switch currentTTSEngine {
+        case .gemini:
+            return audioCollector
+        case .supertonic:
+            return supertonicDaemon
+        }
+    }
+    
+    /// Supertonic 데몬 초기화
+    func initSupertonic() {
+        let voice = UserDefaults.standard.string(forKey: "supertonicVoice") ?? "M1"
+        let lang = UserDefaults.standard.string(forKey: "supertonicLang") ?? "ko"
+        let speed = UserDefaults.standard.double(forKey: "supertonicSpeed")
+        let actualSpeed = speed > 0 ? speed : 1.05
+        
+        supertonicDaemon = SupertonicDaemon(voiceName: voice, lang: lang, speed: actualSpeed)
+        streamingPlayer = GeminiStreamingPlayer(sampleRate: 44100, playbackSpeed: 1.0)  // Supertonic은 자체 속도 제어
+        
+        Task {
+            do {
+                try await supertonicDaemon?.start()
+                print("✅ Supertonic TTS initialized")
+            } catch {
+                print("❌ Supertonic init failed: \(error)")
+            }
+        }
+    }
+    
+    /// TTS 엔진 전환
+    func switchTTSEngine(to engine: TTSEngine) {
+        guard engine != currentTTSEngine else { return }
+        
+        // 기존 엔진 정리
+        switch currentTTSEngine {
+        case .gemini:
+            if #available(macOS 14.0, *) {
+                audioCollector?.closeConnection()
+            }
+        case .supertonic:
+            supertonicDaemon?.stop()
+            supertonicDaemon = nil
+        }
+        
+        currentTTSEngine = engine
+        UserDefaults.standard.set(engine.rawValue, forKey: "ttsEngine")
+        
+        // 새 엔진 초기화
+        if #available(macOS 14.0, *) {
+            switch engine {
+            case .gemini:
+                if let apiKey = ProcessInfo.processInfo.environment["GEMINI_API_KEY"], !apiKey.isEmpty {
+                    streamingPlayer = GeminiStreamingPlayer(sampleRate: 24000, playbackSpeed: 1.15)
+                    audioCollector = GeminiAudioCollector(apiKey: apiKey)
+                    print("✅ Switched to Gemini TTS")
+                }
+            case .supertonic:
+                initSupertonic()
+            }
+        }
+    }
+    
     @objc func showStats() {
         if unifiedWindow == nil {
             unifiedWindow = UnifiedManagerWindow()
@@ -442,6 +521,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         print("📋 Pasted last transcription: \(lastEntry.text.prefix(50))...")
     }
 
+    func applicationWillTerminate(_ notification: Notification) {
+        supertonicDaemon?.stop()
+    }
+    
     func stopCurrentPlayback() {
         print("🛑 Stopping audio playback")
         
@@ -496,19 +579,22 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
             if !copiedText.isEmpty {
                 print("📖 Selected text for streaming TTS: \(copiedText)")
                 
-                // Try to stream speech with our streaming components
-                if let audioCollector = self?.audioCollector, let streamingPlayer = self?.streamingPlayer {
+                // Try to stream speech with current TTS provider
+                if #available(macOS 14.0, *),
+                   let provider = self?.currentTTSProvider,
+                   let streamingPlayer = self?.streamingPlayer {
                     self?.isCurrentlyPlaying = true
+                    let engineName = self?.currentTTSEngine.displayName ?? "TTS"
                     
                     self?.currentStreamingTask = Task {
                         do {
                             let notification = NSUserNotification()
-                            notification.title = "Streaming TTS"
-                            notification.informativeText = "Starting streaming synthesis: \(copiedText.prefix(50))\(copiedText.count > 50 ? "..." : "")"
+                            notification.title = "\(engineName) TTS"
+                            notification.informativeText = "Starting synthesis: \(copiedText.prefix(50))\(copiedText.count > 50 ? "..." : "")"
                             NSUserNotificationCenter.default.deliver(notification)
                             
-                            // Stream audio using single API call for all text at once
-                            try await streamingPlayer.playText(copiedText, audioCollector: audioCollector)
+                            // Stream audio using current TTS provider
+                            try await streamingPlayer.playText(copiedText, provider: provider)
                             
                             // Check if task was cancelled
                             if Task.isCancelled {

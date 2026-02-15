@@ -1,7 +1,8 @@
 import Foundation
 
 @available(macOS 14.0, *)
-public class GeminiAudioCollector {
+public class GeminiAudioCollector: TTSAudioProvider {
+    public let sampleRate: Double = 24000
     private let apiKey: String
     // Reuse a single WebSocket session to avoid per-sentence handshake overhead
     private var webSocketTask: URLSessionWebSocketTask?
@@ -178,6 +179,14 @@ public class GeminiAudioCollector {
             closeConnection()
             throw GeminiAudioCollectorError.collectionError(error)
         }
+    }
+}
+
+// MARK: - TTSAudioProvider conformance (explicit wrapper)
+@available(macOS 14.0, *)
+extension GeminiAudioCollector {
+    public func collectAudioChunks(from text: String) -> AsyncThrowingStream<Data, Error> {
+        return collectAudioChunks(from: text, onComplete: nil)
     }
 }
 
