@@ -126,6 +126,19 @@ public class EdgeTTSEngine: TTSAudioProvider {
         "EdgeTTSEngine(voice=\(voiceName), rate=\(rate), pitch=\(pitch))"
     }
     
+    /// mp3를 WebSocket으로 수신 후 AVAudioPlayer로 직접 재생 (PCM 변환 불필요)
+    public func playText(_ text: String) async throws {
+        var mp3Data = Data()
+        let stream = collectAudioChunks(from: text)
+        for try await chunk in stream {
+            mp3Data.append(chunk)
+        }
+        guard !mp3Data.isEmpty else {
+            throw EdgeTTSError.synthesisError("No audio data received")
+        }
+        try await Self.playMP3Data(mp3Data)
+    }
+    
     // MARK: - Voice List
     
     public struct Voice: Codable {
@@ -197,49 +210,15 @@ public class EdgeTTSEngine: TTSAudioProvider {
         UUID().uuidString.replacingOccurrences(of: "-", with: "")
     }
     
-    // MARK: - MP3 to PCM Conversion
+    // MARK: - MP3 Direct Playback (macOS native)
     
-    fileprivate static func convertMP3ToPCM(mp3Data: Data, targetSampleRate: Double) throws -> Data {
-        let tmpMP3 = FileManager.default.temporaryDirectory
-            .appendingPathComponent("edge-tts-\(UUID().uuidString).mp3")
-        defer { try? FileManager.default.removeItem(at: tmpMP3) }
-        try mp3Data.write(to: tmpMP3)
-        
-        let audioFile = try AVAudioFile(forReading: tmpMP3)
-        let frameCount = AVAudioFrameCount(audioFile.length)
-        guard let inputBuffer = AVAudioPCMBuffer(pcmFormat: audioFile.processingFormat, frameCapacity: frameCount) else {
-            throw EdgeTTSError.synthesisError("Failed to create input buffer")
-        }
-        try audioFile.read(into: inputBuffer)
-        
-        let outputFormat = AVAudioFormat(
-            commonFormat: .pcmFormatInt16,
-            sampleRate: targetSampleRate,
-            channels: 1,
-            interleaved: true
-        )!
-        
-        guard let converter = AVAudioConverter(from: inputBuffer.format, to: outputFormat) else {
-            throw EdgeTTSError.synthesisError("Failed to create audio converter")
-        }
-        
-        let ratio = targetSampleRate / audioFile.processingFormat.sampleRate
-        let outputFrameCount = AVAudioFrameCount(Double(frameCount) * ratio)
-        guard let outputBuffer = AVAudioPCMBuffer(pcmFormat: outputFormat, frameCapacity: outputFrameCount) else {
-            throw EdgeTTSError.synthesisError("Failed to create output buffer")
-        }
-        
-        var error: NSError?
-        converter.convert(to: outputBuffer, error: &error) { _, outStatus in
-            outStatus.pointee = .haveData
-            return inputBuffer
-        }
-        if let error = error {
-            throw EdgeTTSError.synthesisError("Conversion error: \(error)")
-        }
-        
-        let int16Ptr = outputBuffer.int16ChannelData![0]
-        return Data(bytes: int16Ptr, count: Int(outputBuffer.frameLength) * 2)
+    /// mp3 Data를 AVAudioPlayer로 직접 재생 (PCM 변환 불필요)
+    public static func playMP3Data(_ mp3Data: Data) async throws {
+        let player = try AVAudioPlayer(data: mp3Data)
+        player.prepareToPlay()
+        player.play()
+        print("✅ [EdgeTTS] Playing \(String(format: "%.1f", player.duration))s via AVAudioPlayer")
+        try await Task.sleep(nanoseconds: UInt64(player.duration * 1_000_000_000) + 200_000_000)
     }
 }
 
@@ -297,22 +276,10 @@ private class EdgeTTSWebSocketHandler: WebSocketDelegate {
             
         case .text(let str):
             if str.contains("Path:turn.end") {
-                print("✅ [EdgeTTS] Received \(totalBytes) mp3 bytes, converting...")
-                do {
-                    let pcmData = try EdgeTTSEngine.convertMP3ToPCM(mp3Data: mp3Buffer, targetSampleRate: sampleRate)
-                    let chunkSize = Int(sampleRate) * 2
-                    var offset = 0
-                    while offset < pcmData.count {
-                        let end = min(offset + chunkSize, pcmData.count)
-                        audioContinuation.yield(pcmData[offset..<end])
-                        offset = end
-                    }
-                    print("✅ [EdgeTTS] Complete: \(pcmData.count) PCM bytes (\(String(format: "%.1f", Double(pcmData.count) / 2.0 / sampleRate))s)")
-                    finish(nil)
-                } catch {
-                    print("❌ [EdgeTTS] MP3→PCM failed: \(error)")
-                    finish(error)
-                }
+                print("✅ [EdgeTTS] Received \(totalBytes) mp3 bytes")
+                // Yield mp3 data as single chunk — caller handles playback
+                audioContinuation.yield(mp3Buffer)
+                finish(nil)
             }
             
         case .binary(let data):

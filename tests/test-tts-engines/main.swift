@@ -61,17 +61,13 @@ struct TestTTSEngines {
         for voice in voices {
             print("\n🎤 Voice: \(voice)")
             let engine = EdgeTTSEngine(voiceName: voice)
-            let player = GeminiStreamingPlayer(sampleRate: 24000, playbackSpeed: 1.0)
             
             do {
-                let stream = engine.collectAudioChunks(from: text)
-                try await player.playAudioStream(stream)
+                try await engine.playText(text)
                 print("✅ \(voice) playback complete")
             } catch {
                 print("❌ \(voice) failed: \(error)")
             }
-            
-            player.stopAudioEngine()
             
             // Brief pause between voices
             try? await Task.sleep(nanoseconds: 500_000_000)
