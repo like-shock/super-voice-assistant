@@ -19,19 +19,37 @@
 
 ## Completed Features
 
-### Gemini Live TTS Integration
+### TTS Engine (Pluggable: Gemini / Supertonic)
 
-**Status**: ✅ Complete and integrated into main app
+**Status**: ✅ Complete — dual engine support with TTSAudioProvider protocol
 **Key Files**:
-- `SharedSources/GeminiStreamingPlayer.swift` - Streaming TTS playback engine
-- `SharedSources/GeminiAudioCollector.swift` - Audio collection and WebSocket handling
+- `SharedSources/TTSProvider.swift` - TTSAudioProvider protocol + TTSEngine enum
+- `SharedSources/GeminiStreamingPlayer.swift` - Streaming TTS playback engine (shared by all engines)
+- `SharedSources/GeminiAudioCollector.swift` - Gemini Live WebSocket TTS (cloud)
+- `SharedSources/SupertonicEngine.swift` - Supertonic native TTS engine (local, ONNX Runtime)
+- `SharedSources/SupertonicCore.swift` - Supertonic ONNX inference core (from supertone-inc/supertonic)
 - `SharedSources/SmartSentenceSplitter.swift` - Text processing for optimal speech
+
+**Architecture**:
+- `TTSAudioProvider` protocol abstracts TTS engines → `AsyncThrowingStream<Data, Error>`
+- `GeminiAudioCollector` (cloud, 24kHz) and `SupertonicEngine` (local, 44.1kHz) both conform
+- `GeminiStreamingPlayer` accepts any provider, sample rate is configurable
+- Engine selection persisted via UserDefaults (`ttsEngine` key)
+
+**Supertonic (Local)**:
+- Swift-native ONNX Runtime inference, zero Python dependency
+- 66M parameter model, ~160ms per sentence on M1
+- Korean, English, Spanish, Portuguese, French support
+- 10 voice styles (M1-M5, F1-F5)
+- Models at `~/.cache/supertonic2/` (shared with pip package)
+- First run requires model download (~305MB from HuggingFace)
 
 **Features**:
 - ✅ Cmd+Opt+S keyboard shortcut for reading selected text aloud
+- ✅ Dual engine: Gemini (cloud) or Supertonic (local/offline)
 - ✅ Sequential streaming for smooth, natural speech with minimal latency
 - ✅ Smart sentence splitting for optimal speech flow
-- ✅ 15% speed boost via TimePitch effect
+- ✅ Automatic fallback to Supertonic when GEMINI_API_KEY is missing
 
 ### Gemini Audio Transcription
 

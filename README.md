@@ -1,6 +1,6 @@
 # Super Voice Assistant
 
-macOS voice assistant with global hotkeys - transcribe speech to text with offline models (WhisperKit or Parakeet) or cloud-based Gemini API, capture and transcribe screen recordings with visual context, and read selected text aloud with Gemini Live. Fast, accurate, and simple.
+macOS voice assistant with global hotkeys - transcribe speech to text with offline models (WhisperKit or Parakeet) or cloud-based Gemini API, capture and transcribe screen recordings with visual context, and read selected text aloud with Gemini Live or Supertonic (local). Fast, accurate, and simple.
 
 ## Demo
 
@@ -26,10 +26,15 @@ https://github.com/user-attachments/assets/0b7f481f-4fec-4811-87ef-13737e0efac4
 - Transcription history with Command+Option+A
 
 **Streaming Text-to-Speech**
-- Press Command+Option+S to read selected text aloud using Gemini Live API
+- Press Command+Option+S to read selected text aloud
 - Press Command+Option+S again while reading to cancel the operation
-- Sequential streaming for smooth, natural speech with minimal latency
+- **Dual engine support:**
+  - **Supertonic (Local)** — offline, no API key, ~160ms/sentence on Apple Silicon via ONNX Runtime
+  - **Gemini Live (Cloud)** — streaming WebSocket, requires GEMINI_API_KEY
+- Korean, English, and 3 more languages supported (Supertonic)
+- 10 voice styles (M1-M5, F1-F5) with configurable speed
 - Smart sentence splitting for optimal speech flow
+- Automatic fallback to Supertonic when Gemini API key is not available
 
 **Screen Recording & Video Transcription**
 - Press Command+Option+C to start/stop screen recording
@@ -41,7 +46,7 @@ https://github.com/user-attachments/assets/0b7f481f-4fec-4811-87ef-13737e0efac4
 
 - macOS 14.0 or later
 - Xcode 15+ or Xcode Command Line Tools (for Swift 5.9+)
-- Gemini API key (for text-to-speech and video transcription)
+- Gemini API key (optional — needed for cloud TTS and video transcription; local TTS works without it)
 - ffmpeg (for screen recording functionality)
 
 ## System Permissions Setup
@@ -142,8 +147,9 @@ This is useful for correcting common speech-to-text misrecognitions, especially 
 1. Select any text in any application
 2. Press **Command+Option+S** to read the selected text aloud
 3. Press **Command+Option+S** again while reading to cancel the operation
-4. The app uses Gemini Live API for natural, streaming speech synthesis
-5. Configure audio devices via Settings for optimal playback
+4. Default engine: **Supertonic** (local, no API key needed) or **Gemini Live** (cloud)
+5. Supertonic models are auto-downloaded on first use (~305MB from HuggingFace to `~/.cache/supertonic2/`)
+6. Configure audio devices via Settings for optimal playback
 
 ### Screen Recording & Video Transcription
 1. Press **Command+Option+C** to start screen recording
@@ -222,8 +228,12 @@ swift run TranscribeVideo <path-to-video-file>
   - `AudioTranscriptionManager.swift` - Audio recording and transcription routing
   - `ScreenRecorder.swift` - Screen recording with ffmpeg
 - `SharedSources/` - Shared components
+  - `TTSProvider.swift` - TTSAudioProvider protocol (pluggable TTS engines)
+  - `SupertonicEngine.swift` - Supertonic local TTS (ONNX Runtime, no Python)
+  - `SupertonicCore.swift` - Supertonic ONNX inference core
+  - `GeminiStreamingPlayer.swift` - Streaming TTS playback (shared by all engines)
+  - `GeminiAudioCollector.swift` - Gemini Live WebSocket TTS
   - `ParakeetTranscriber.swift` - FluidAudio Parakeet wrapper
-  - `GeminiStreamingPlayer.swift` - Streaming TTS playback
   - `GeminiAudioTranscriber.swift` - Gemini API transcription
   - `VideoTranscriber.swift` - Gemini API video transcription
 - `tests/` - Test utilities
