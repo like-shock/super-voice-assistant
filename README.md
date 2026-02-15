@@ -1,6 +1,6 @@
 # Super Voice Assistant
 
-macOS voice assistant with global hotkeys — transcribe speech to text with offline models (WhisperKit or Parakeet) or cloud-based Gemini API, capture and transcribe screen recordings with visual context, and read selected text aloud with Supertonic (local) or Gemini Live (cloud). Fast, accurate, and simple.
+macOS voice assistant with global hotkeys — transcribe speech to text with offline models (WhisperKit or Parakeet) or cloud-based Gemini API, capture and transcribe screen recordings with visual context, and read selected text aloud with Supertonic (local), Edge TTS (cloud, free), or Gemini Live (cloud). Fast, accurate, and simple.
 
 ## Demo
 
@@ -28,11 +28,12 @@ https://github.com/user-attachments/assets/0b7f481f-4fec-4811-87ef-13737e0efac4
 **Streaming Text-to-Speech**
 - Press Command+Option+S to read selected text aloud
 - Press Command+Option+S again while reading to cancel the operation
-- **Dual engine support:**
+- **Triple engine support:**
   - **Supertonic (Local)** — offline, no API key, ~160ms/sentence on Apple Silicon via ONNX Runtime
+  - **Edge TTS (Cloud)** — free, no API key, high-quality Microsoft neural voices
   - **Gemini Live (Cloud)** — streaming WebSocket, requires GEMINI_API_KEY
-- Korean, English, and 3 more languages supported (Supertonic)
-- 10 voice styles (M1-M5, F1-F5) with configurable speed
+- Korean, English, and more languages supported
+- Multiple voice styles per engine with configurable speed
 - Engine selection in Settings UI
 - Automatic fallback to Supertonic when Gemini API key is not available
 
@@ -157,7 +158,7 @@ This is useful for correcting common speech-to-text misrecognitions, especially 
 1. Select any text in any application
 2. Press **Command+Option+S** to read the selected text aloud
 3. Press **Command+Option+S** again while reading to cancel the operation
-4. Default engine: **Supertonic** (local, no API key needed) or **Gemini Live** (cloud)
+4. Default engine: **Supertonic** (local, no API key needed), **Edge TTS** (cloud, free), or **Gemini Live** (cloud)
 5. Configure engine, voice, language, and speed in Settings → Text-to-Speech
 6. Configure audio output device in Settings for optimal playback
 
@@ -220,6 +221,10 @@ swift run TestAudioCollector
 # Test sentence splitting for TTS
 swift run TestSentenceSplitter
 
+# Test TTS engines (Edge TTS / Supertonic)
+swift run TestTTSEngines edge "테스트 문장"
+swift run TestTTSEngines supertonic "테스트 문장"
+
 # Test screen recording (3-second capture)
 swift run RecordScreen
 
@@ -246,6 +251,7 @@ SharedSources/                    # Shared components (no AppKit dependency)
 ├── SupertonicEngine.swift        # Supertonic local TTS (ONNX Runtime)
 ├── SupertonicCore.swift          # Supertonic ONNX inference core
 ├── GeminiStreamingPlayer.swift   # Streaming TTS playback (all engines)
+├── EdgeTTSEngine.swift           # Edge TTS (free cloud, Starscream WebSocket)
 ├── GeminiAudioCollector.swift    # Gemini Live WebSocket TTS
 ├── GeminiAudioTranscriber.swift  # Gemini API transcription
 ├── ParakeetTranscriber.swift     # FluidAudio Parakeet wrapper

@@ -43,22 +43,24 @@ Auto-migration from legacy paths on first launch:
 
 ## Completed Features
 
-### TTS Engine (Pluggable: Gemini / Supertonic)
+### TTS Engine (Pluggable: Gemini / Supertonic / Edge TTS)
 
-**Status**: ✅ Complete — dual engine support with TTSAudioProvider protocol
+**Status**: ✅ Complete — triple engine support with TTSAudioProvider protocol
 **Key Files**:
 - `SharedSources/TTSProvider.swift` - TTSAudioProvider protocol + TTSEngine enum
 - `SharedSources/GeminiStreamingPlayer.swift` - Streaming TTS playback engine (shared by all engines)
 - `SharedSources/GeminiAudioCollector.swift` - Gemini Live WebSocket TTS (cloud)
 - `SharedSources/SupertonicEngine.swift` - Supertonic native TTS engine (local, ONNX Runtime)
 - `SharedSources/SupertonicCore.swift` - Supertonic ONNX inference core (from supertone-inc/supertonic)
+- `SharedSources/EdgeTTSEngine.swift` - Edge TTS engine (cloud, free, Starscream WebSocket)
 - `SharedSources/SmartSentenceSplitter.swift` - Text processing for optimal speech
 - `Sources/TTSSettingsView.swift` - TTS engine selection UI
 
 **Architecture**:
 - `TTSAudioProvider` protocol abstracts TTS engines → `AsyncThrowingStream<Data, Error>`
-- `GeminiAudioCollector` (cloud, 24kHz) and `SupertonicEngine` (local, 44.1kHz) both conform
+- `GeminiAudioCollector` (cloud, 24kHz), `SupertonicEngine` (local, 44.1kHz), and `EdgeTTSEngine` (cloud, MP3) all conform
 - `GeminiStreamingPlayer` accepts any provider, sample rate is configurable
+- Edge TTS returns MP3 data chunks → played directly via AVAudioPlayer (not PCM streaming)
 - Engine selection persisted via UserDefaults (`ttsEngine` key)
 - Engine switching via Settings UI or programmatic `switchTTSEngine(to:)`
 
@@ -70,9 +72,17 @@ Auto-migration from legacy paths on first launch:
 - Models at `~/Library/Application Support/SuperVoiceAssistant/models/supertonic/`
 - Auto-migrated from `~/.cache/supertonic2/` (pip package path) on first launch
 
+**Edge TTS (Cloud, Free)**:
+- Microsoft Edge TTS via WebSocket (no API key required)
+- Starscream WebSocket library for full header control (Apple URLSessionWebSocketTask drops Origin/Cookie)
+- DRM token generation: SHA256 HMAC with 300s-rounded timestamp
+- MP3 output format (`audio-24khz-48kbitrate-mono-mp3`), sentence-level streaming
+- Korean voices: SunHi (여성), InJoon (남성), HyunsuMultilingual (남성/다국어)
+- Direct MP3 playback via AVAudioPlayer per sentence
+
 **Features**:
 - ✅ Cmd+Opt+S keyboard shortcut for reading selected text aloud
-- ✅ Dual engine: Gemini (cloud) or Supertonic (local/offline)
+- ✅ Triple engine: Gemini (cloud) / Supertonic (local/offline) / Edge TTS (cloud, free)
 - ✅ Settings UI for engine selection, voice style, language, speed
 - ✅ Sequential streaming for smooth, natural speech with minimal latency
 - ✅ Smart sentence splitting for optimal speech flow
@@ -101,6 +111,25 @@ Auto-migration from legacy paths on first launch:
 **Key Files**:
 - `Sources/ScreenRecorder.swift` - Screen capture via ffmpeg
 - `SharedSources/VideoTranscriber.swift` - Gemini API video transcription
+
+### TTS Test Harness
+
+**File**: `tests/test-tts-engines/main.swift` (SPM target: `TestTTSEngines`)
+```bash
+swift run TestTTSEngines edge "테스트 문장"
+swift run TestTTSEngines supertonic "테스트 문장"
+```
+
+### Codesign Setup (for ANE Cache)
+
+CoreML ANE specialization cache keys depend on codesign identity. Ad-hoc signed SPM binaries get different cache keys per build → ANE re-specialization (~5min) every time.
+
+**Solution**: Self-signed certificate "SuperVoiceAssistant Dev"
+```bash
+./setup-codesign.sh   # Creates cert in login keychain (one-time)
+./build-and-run.sh    # Builds + signs + runs with stable identity
+```
+Config: `.codesign.env` (CERT_NAME, BINARY, BUNDLE_ID)
 
 ### Keyboard Shortcuts
 
