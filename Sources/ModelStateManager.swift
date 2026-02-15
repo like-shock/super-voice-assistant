@@ -187,13 +187,7 @@ class ModelStateManager: ObservableObject {
     }
     
     func getModelPath(for whisperKitModelName: String) -> URL {
-        // Use the same path structure as WhisperKit
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        return documentsPath
-            .appendingPathComponent("huggingface")
-            .appendingPathComponent("models")
-            .appendingPathComponent("argmaxinc")
-            .appendingPathComponent("whisperkit-coreml")
+        return WhisperModelManager.shared.getModelsBasePath()
             .appendingPathComponent(whisperKitModelName)
     }
     

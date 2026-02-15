@@ -30,12 +30,44 @@ public class WhisperModelManager {
     
     /// Get the base path for WhisperKit models
     public func getModelsBasePath() -> URL {
+        let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport
+            .appendingPathComponent("SuperVoiceAssistant")
+            .appendingPathComponent("models")
+            .appendingPathComponent("whisperkit")
+    }
+    
+    /// Legacy path (for migration)
+    private func getLegacyModelsBasePath() -> URL {
         let documentsPath = fileManager.urls(for: .documentDirectory, in: .userDomainMask).first!
         return documentsPath
             .appendingPathComponent("huggingface")
             .appendingPathComponent("models")
             .appendingPathComponent("argmaxinc")
             .appendingPathComponent("whisperkit-coreml")
+    }
+    
+    /// Migrate models from legacy ~/Documents path to Application Support
+    public func migrateIfNeeded() {
+        let legacyPath = getLegacyModelsBasePath()
+        let newPath = getModelsBasePath()
+        
+        guard fileManager.fileExists(atPath: legacyPath.path) else { return }
+        guard !fileManager.fileExists(atPath: newPath.path) else { return }
+        
+        do {
+            // Create parent directories
+            try fileManager.createDirectory(at: newPath.deletingLastPathComponent(), withIntermediateDirectories: true)
+            // Move entire directory
+            try fileManager.moveItem(at: legacyPath, to: newPath)
+            print("✅ Migrated WhisperKit models from Documents to Application Support")
+            
+            // Clean up empty parent directories
+            let huggingfacePath = legacyPath.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
+            try? fileManager.removeItem(at: huggingfacePath)
+        } catch {
+            print("⚠️ Migration failed, will use new path for future downloads: \(error)")
+        }
     }
     
     /// Get the path for a specific model

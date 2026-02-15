@@ -25,13 +25,29 @@ class WhisperModelDownloader {
         }
         
         // Download the model using WhisperKit.download with progress tracking
-        let modelFolder = try await WhisperKit.download(
+        let downloadedFolder = try await WhisperKit.download(
             variant: modelName,
             from: "argmaxinc/whisperkit-coreml",
             progressCallback: progressCallback
         )
         
-        print("Model downloaded successfully to: \(modelFolder)")
+        print("Model downloaded to: \(downloadedFolder)")
+        
+        // Move to our app-managed path if different
+        let modelFolder: URL
+        if downloadedFolder.path != modelPath.path {
+            try FileManager.default.createDirectory(at: modelPath.deletingLastPathComponent(), withIntermediateDirectories: true)
+            if FileManager.default.fileExists(atPath: modelPath.path) {
+                try FileManager.default.removeItem(at: modelPath)
+            }
+            try FileManager.default.moveItem(at: downloadedFolder, to: modelPath)
+            print("Moved model to: \(modelPath)")
+            modelFolder = modelPath
+        } else {
+            modelFolder = downloadedFolder
+        }
+        
+        print("Model ready at: \(modelFolder)")
         
         // Validate the model by trying to load it
         print("Validating model...")

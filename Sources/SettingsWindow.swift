@@ -231,11 +231,8 @@ struct SettingsView: View {
     }
     
     func getModelPath(for whisperKitModelName: String) -> URL {
-        // Use the same path structure as WhisperKit/HubApi
-        let hubApi = HubApi()
-        let repo = Hub.Repo(id: "argmaxinc/whisperkit-coreml", type: .models)
-        let repoLocation = hubApi.localRepoLocation(repo)
-        return repoLocation.appendingPathComponent(whisperKitModelName)
+        return WhisperModelManager.shared.getModelsBasePath()
+            .appendingPathComponent(whisperKitModelName)
     }
     
     func downloadModel(_ modelName: String) {

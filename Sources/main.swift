@@ -68,6 +68,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         // Load environment variables
         loadEnvironmentVariables()
         
+        // Migrate WhisperKit models from legacy ~/Documents path
+        WhisperModelManager.shared.migrateIfNeeded()
+        
         // Initialize TTS engine
         let savedEngine = UserDefaults.standard.string(forKey: "ttsEngine")
             .flatMap { TTSEngine(rawValue: $0) } ?? .gemini
