@@ -287,7 +287,15 @@ class AudioTranscriptionManager {
         // Load model if not already loaded
         if ModelStateManager.shared.loadedWhisperKit == nil {
             if let selectedModel = ModelStateManager.shared.selectedModel {
-                _ = await ModelStateManager.shared.loadModel(selectedModel)
+                ModelStateManager.shared.loadModel(selectedModel)
+                // Wait for model to finish loading
+                while ModelStateManager.shared.loadedWhisperKit == nil {
+                    try? await Task.sleep(nanoseconds: 100_000_000) // 100ms
+                    if ModelStateManager.shared.getLoadingState(for: selectedModel) == .downloaded
+                        || ModelStateManager.shared.getLoadingState(for: selectedModel) == .notDownloaded {
+                        break // Loading failed
+                    }
+                }
             }
         }
 

@@ -284,9 +284,7 @@ struct SettingsView: View {
                     
                     // Auto-load the model after download if it's the selected one
                     if modelState.selectedModel == modelName {
-                        Task {
-                            _ = await modelState.loadModel(modelName)
-                        }
+                        modelState.loadModel(modelName)
                     }
                 }
                 

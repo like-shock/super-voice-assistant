@@ -214,16 +214,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         geminiAudioManager = GeminiAudioRecordingManager()
         geminiAudioManager.delegate = self
         
-        // Check downloaded models at startup (in background)
-        Task {
+        // Check downloaded models at startup (off MainActor to prevent CoreML deadlock)
+        Task.detached(priority: .userInitiated) {
             await ModelStateManager.shared.checkDownloadedModels()
             print("Model check completed at startup")
 
             // Load the initially selected model based on engine
-            switch ModelStateManager.shared.selectedEngine {
+            let engine = await ModelStateManager.shared.selectedEngine
+            switch engine {
             case .whisperKit:
-                if let selectedModel = ModelStateManager.shared.selectedModel {
-                    _ = await ModelStateManager.shared.loadModel(selectedModel)
+                if let selectedModel = await ModelStateManager.shared.selectedModel {
+                    await ModelStateManager.shared.loadModel(selectedModel)
                 }
             case .parakeet:
                 await ModelStateManager.shared.loadParakeetModel()
@@ -237,10 +238,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                 guard let selectedModel = selectedModel else { return }
                 // Only load if WhisperKit is the selected engine
                 guard ModelStateManager.shared.selectedEngine == .whisperKit else { return }
-                Task {
-                    // Load the new model
-                    _ = await ModelStateManager.shared.loadModel(selectedModel)
-                }
+                // Load the new model (fire-and-forget, state updates via @Published)
+                ModelStateManager.shared.loadModel(selectedModel)
             }
 
         // Observe engine changes - only handle memory management, not loading
