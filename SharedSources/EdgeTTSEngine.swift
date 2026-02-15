@@ -128,7 +128,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
     
     /// 문장 단위로 분할 → 각 문장 WebSocket 합성 → mp3 직접 재생 (Supertonic과 동일 패턴)
     public func playText(_ text: String) async throws {
-        let sentences = SmartSentenceSplitter.splitIntoSentences(text, minWordsPerSentence: 0)
+        let sentences = SmartSentenceSplitter.splitByLines(text)
         print("📖 [EdgeTTS] Split into \(sentences.count) sentences")
         
         for (index, sentence) in sentences.enumerated() {
