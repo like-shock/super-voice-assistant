@@ -42,8 +42,9 @@ openssl req -x509 -newkey rsa:2048 -nodes \
     -extensions extensions \
     2>/dev/null
 
-# Convert to p12 (no password)
-openssl pkcs12 -export -passout pass: \
+# Convert to p12
+P12_PASS="codesign-tmp"
+openssl pkcs12 -export -passout "pass:$P12_PASS" \
     -out "$WORKDIR/cert.p12" \
     -inkey "$WORKDIR/key.pem" \
     -in "$WORKDIR/cert.pem" \
@@ -54,7 +55,7 @@ security import "$WORKDIR/cert.p12" \
     -k "$KEYCHAIN" \
     -T /usr/bin/codesign \
     -f pkcs12 \
-    -P ""
+    -P "$P12_PASS"
 
 # Trust the certificate for code signing
 security add-trusted-cert -d -r trustRoot -k "$KEYCHAIN" "$WORKDIR/cert.pem" 2>/dev/null || true
