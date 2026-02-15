@@ -56,7 +56,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     private var geminiAudioManager: GeminiAudioRecordingManager!
     private var streamingPlayer: GeminiStreamingPlayer?
     private var audioCollector: GeminiAudioCollector?
-    private var supertonicDaemon: SupertonicDaemon?
+    private var supertonicEngine: SupertonicEngine?
     private var currentTTSEngine: TTSEngine = .gemini
     private var isCurrentlyPlaying = false
     private var currentStreamingTask: Task<Void, Never>?
@@ -284,27 +284,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         case .gemini:
             return audioCollector
         case .supertonic:
-            return supertonicDaemon
+            return supertonicEngine
         }
     }
     
-    /// Supertonic 데몬 초기화
+    /// Supertonic 네이티브 엔진 초기화
     func initSupertonic() {
         let voice = UserDefaults.standard.string(forKey: "supertonicVoice") ?? "M1"
         let lang = UserDefaults.standard.string(forKey: "supertonicLang") ?? "ko"
         let speed = UserDefaults.standard.double(forKey: "supertonicSpeed")
-        let actualSpeed = speed > 0 ? speed : 1.05
+        let actualSpeed = speed > 0 ? Float(speed) : Float(1.05)
         
-        supertonicDaemon = SupertonicDaemon(voiceName: voice, lang: lang, speed: actualSpeed)
+        supertonicEngine = SupertonicEngine(voiceName: voice, lang: lang, speed: actualSpeed)
         streamingPlayer = GeminiStreamingPlayer(sampleRate: 44100, playbackSpeed: 1.0)  // Supertonic은 자체 속도 제어
         
-        Task {
-            do {
-                try await supertonicDaemon?.start()
-                print("✅ Supertonic TTS initialized")
-            } catch {
-                print("❌ Supertonic init failed: \(error)")
-            }
+        do {
+            try supertonicEngine?.load()
+            print("✅ Supertonic native TTS initialized")
+        } catch {
+            print("❌ Supertonic init failed: \(error)")
         }
     }
     
@@ -319,8 +317,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                 audioCollector?.closeConnection()
             }
         case .supertonic:
-            supertonicDaemon?.stop()
-            supertonicDaemon = nil
+            supertonicEngine?.unload()
+            supertonicEngine = nil
         }
         
         currentTTSEngine = engine
@@ -522,7 +520,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     }
 
     func applicationWillTerminate(_ notification: Notification) {
-        supertonicDaemon?.stop()
+        supertonicEngine?.unload()
     }
     
     func stopCurrentPlayback() {
