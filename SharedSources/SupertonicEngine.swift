@@ -23,6 +23,43 @@ public class SupertonicEngine: TTSAudioProvider {
     
     public private(set) var isLoaded: Bool = false
     
+    /// 레거시 경로 (~/.cache/supertonic2)에서 앱 내부 경로로 마이그레이션
+    private static func migrateIfNeeded(to newPath: String) {
+        let fm = FileManager.default
+        let home = fm.homeDirectoryForCurrentUser.path
+        let legacyPath = "\(home)/.cache/supertonic2"
+        
+        // 새 경로에 이미 모델이 있으면 스킵
+        guard !fm.fileExists(atPath: "\(newPath)/onnx/tts.json") else { return }
+        // 레거시 경로에 모델이 없으면 스킵
+        guard fm.fileExists(atPath: "\(legacyPath)/onnx/tts.json") else { return }
+        
+        do {
+            try fm.createDirectory(atPath: newPath, withIntermediateDirectories: true)
+            // onnx/ 와 voice_styles/ 복사
+            for subdir in ["onnx", "voice_styles"] {
+                let src = "\(legacyPath)/\(subdir)"
+                let dst = "\(newPath)/\(subdir)"
+                guard fm.fileExists(atPath: src) else { continue }
+                if fm.fileExists(atPath: dst) { continue }
+                try fm.copyItem(atPath: src, toPath: dst)
+            }
+            print("✅ [Supertonic] Migrated models from ~/.cache/supertonic2 to Application Support")
+        } catch {
+            print("⚠️ [Supertonic] Migration failed: \(error)")
+        }
+    }
+    
+    /// 기본 모델 경로 (Application Support)
+    public static func defaultModelDir() -> String {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport
+            .appendingPathComponent("SuperVoiceAssistant")
+            .appendingPathComponent("models")
+            .appendingPathComponent("supertonic")
+            .path
+    }
+    
     public init(
         modelDir: String? = nil,
         voiceName: String = "M1",
@@ -30,13 +67,11 @@ public class SupertonicEngine: TTSAudioProvider {
         speed: Float = 1.05,
         totalSteps: Int = 5
     ) {
-        // 기본 모델 경로: ~/.cache/supertonic2 (pip install supertonic이 다운로드하는 경로)
-        // 또는 HuggingFace 클론 경로
         if let dir = modelDir {
             self.modelDir = dir
         } else {
-            let home = FileManager.default.homeDirectoryForCurrentUser.path
-            let defaultPath = "\(home)/.cache/supertonic2"
+            let defaultPath = SupertonicEngine.defaultModelDir()
+            SupertonicEngine.migrateIfNeeded(to: defaultPath)
             self.modelDir = defaultPath
         }
         

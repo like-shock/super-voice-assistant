@@ -93,6 +93,15 @@ public enum ParakeetLoadingState: Equatable {
 /// Wrapper for FluidAudio Parakeet transcription
 public class ParakeetTranscriber {
 
+    /// FluidAudio 기본 모델 경로 (~/Library/Application Support/FluidAudio/Models/)
+    /// FluidAudio SDK가 내부적으로 이 경로를 사용하며, 모델 다운로드도 여기에 저장됨
+    public static func modelsDirectory() -> URL {
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        return appSupport
+            .appendingPathComponent("FluidAudio")
+            .appendingPathComponent("Models")
+    }
+
     public enum TranscriptionError: Error, LocalizedError {
         case modelNotLoaded
         case transcriptionFailed(String)
@@ -129,11 +138,8 @@ public class ParakeetTranscriber {
             loadingState = .loading
 
             // Load the models - FluidAudio will download them automatically if needed
-            // Use the Documents directory for model storage
-            let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-            let modelsDirectory = documentsPath
-                .appendingPathComponent("FluidAudio")
-                .appendingPathComponent("models")
+            // Uses FluidAudio's default: ~/Library/Application Support/FluidAudio/Models/
+            let modelsDirectory = ParakeetTranscriber.modelsDirectory()
 
             // Ensure the directory exists
             try FileManager.default.createDirectory(at: modelsDirectory, withIntermediateDirectories: true)

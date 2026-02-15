@@ -22,8 +22,8 @@ struct TTSSettingsSection: View {
     }
     
     private var modelExists: Bool {
-        let home = FileManager.default.homeDirectoryForCurrentUser.path
-        return FileManager.default.fileExists(atPath: "\(home)/.cache/supertonic2/onnx/tts.json")
+        let modelDir = SupertonicEngine.defaultModelDir()
+        return FileManager.default.fileExists(atPath: "\(modelDir)/onnx/tts.json")
     }
     
     var body: some View {
