@@ -163,9 +163,10 @@ struct TTSSettingsSection: View {
         ("선히 (여성)", "ko-KR-SunHiNeural"),
         ("인준 (남성)", "ko-KR-InJoonNeural"),
         ("현수 (남성/다국어)", "ko-KR-HyunsuMultilingualNeural"),
-        ("Jenny (EN-F)", "en-US-JennyMultilingualNeural"),
-        ("Guy (EN-M)", "en-US-AndrewMultilingualNeural"),
-        ("Xiaoxiao (ZH-F)", "zh-CN-XiaoxiaoMultilingualNeural"),
+        ("Jenny (EN-F)", "en-US-JennyNeural"),
+        ("Aria (EN-F)", "en-US-AriaNeural"),
+        ("Guy (EN-M)", "en-US-GuyNeural"),
+        ("Xiaoxiao (ZH-F)", "zh-CN-XiaoxiaoNeural"),
     ]
     
     private var edgeTTSCard: some View {
