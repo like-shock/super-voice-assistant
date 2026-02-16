@@ -11,6 +11,7 @@ struct SettingsView: View {
     @AppStorage("edgeTTSVoice") private var edgeVoice: String = "ko-KR-SunHiNeural"
     @AppStorage("supertonicVoice") private var supertonicVoice: String = "M1"
     @AppStorage("supertonicLang") private var supertonicLang: String = "ko"
+    @AppStorage("supertonicSpeed") private var supertonicSpeed: Double = 1.05
     @State private var downloadingModels: Set<String> = []
     @State private var downloadProgress: [String: Double] = [:]
     @State private var downloadErrors: [String: String] = [:]
@@ -215,7 +216,7 @@ struct SettingsView: View {
             let voiceName = edgeVoice.components(separatedBy: "-").dropFirst(2).joined(separator: "-").replacingOccurrences(of: "Neural", with: "").replacingOccurrences(of: "Multilingual", with: "")
             statusRow(icon: "speaker.wave.2.fill", text: "Current TTS: Edge TTS (Cloud/Free) [Voice: \(voiceName)]")
         case .supertonic:
-            statusRow(icon: "speaker.wave.2.fill", text: "Current TTS: Supertonic (Local) [Voice: \(supertonicVoice), Language: \(langDisplayName)]")
+            statusRow(icon: "speaker.wave.2.fill", text: "Current TTS: Supertonic (Local) [Voice: \(supertonicVoice), Language: \(langDisplayName), Speed: \(String(format: "%.2f", supertonicSpeed))]")
         case .gemini:
             statusRow(icon: "speaker.wave.2.fill", text: "Current TTS: Gemini Live (Cloud)")
         }
