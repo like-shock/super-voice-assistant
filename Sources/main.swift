@@ -634,16 +634,18 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                         }
                         
                         // Reset playing state when task completes (normally or via cancellation)
-                        DispatchQueue.main.async {
+                        DispatchQueue.main.async { [weak self] in
                             self?.isCurrentlyPlaying = false
                             self?.currentStreamingTask = nil
                         }
                         
                         // Restore original clipboard contents after streaming
+                        nonisolated(unsafe) let pb = pasteboard
+                        let items = savedItems
                         DispatchQueue.main.async {
-                            pasteboard.clearContents()
-                            for (type, data) in savedItems {
-                                pasteboard.setData(data, forType: type)
+                            pb.clearContents()
+                            for (type, data) in items {
+                                pb.setData(data, forType: type)
                             }
                             print("♻️ Restored original clipboard contents")
                         }
