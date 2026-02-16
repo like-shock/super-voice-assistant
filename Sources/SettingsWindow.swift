@@ -167,7 +167,7 @@ struct SettingsView: View {
         case .parakeet:
             switch modelState.parakeetLoadingState {
             case .loaded:
-                Label("Current STT: Parakeet \(modelState.parakeetVersion.displayName)", systemImage: "mic.fill")
+                Label("Current STT: \(modelState.parakeetVersion.displayName) (Parakeet)", systemImage: "mic.fill")
                     .font(.caption)
                     .foregroundColor(.secondary)
             case .loading, .downloading:
@@ -182,7 +182,7 @@ struct SettingsView: View {
         case .whisperKit:
             if let selected = modelState.selectedModel,
                let model = whisperModels.first(where: { $0.name == selected }) {
-                Label("Current STT: WhisperKit \(model.displayName)", systemImage: "mic.fill")
+                Label("Current STT: \(model.displayName) (WhisperKit)", systemImage: "mic.fill")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else if modelState.downloadedModels.isEmpty {
@@ -204,7 +204,7 @@ struct SettingsView: View {
         switch engine {
         case .edge:
             let voiceName = edgeVoice.components(separatedBy: "-").dropFirst(2).joined(separator: "-").replacingOccurrences(of: "Neural", with: "").replacingOccurrences(of: "Multilingual", with: "")
-            Label("Current TTS: Edge TTS (Voice: \(voiceName))", systemImage: "speaker.wave.2.fill")
+            Label("Current TTS: Edge TTS (Cloud/Free) [Voice: \(voiceName)]", systemImage: "speaker.wave.2.fill")
                 .font(.caption)
                 .foregroundColor(.secondary)
         case .supertonic:
