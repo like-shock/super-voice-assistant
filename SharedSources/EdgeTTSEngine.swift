@@ -17,6 +17,8 @@ public class EdgeTTSEngine: TTSAudioProvider {
     
     /// Retain active WebSocket handler to prevent ARC deallocation
     private var activeHandler: AnyObject?
+    /// Retain current AVAudioPlayer to prevent ARC deallocation during playback
+    private var activePlayer: AVAudioPlayer?
     
     // Edge TTS constants
     private static let chromiumFullVersion = "143.0.3650.75"
@@ -153,7 +155,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
             
             guard !mp3Data.isEmpty else { continue }
             print("🎵 [EdgeTTS] \(index+1)/\(sentences.count): \(mp3Data.count) mp3 bytes")
-            try await Self.playMP3Data(mp3Data)
+            try await self.playMP3Data(mp3Data)
         }
     }
     
@@ -241,12 +243,13 @@ public class EdgeTTSEngine: TTSAudioProvider {
     // MARK: - MP3 Direct Playback (macOS native)
     
     /// mp3 Data를 AVAudioPlayer로 직접 재생 (PCM 변환 불필요)
-    public static func playMP3Data(_ mp3Data: Data) async throws {
+    public func playMP3Data(_ mp3Data: Data) async throws {
         let player = try AVAudioPlayer(data: mp3Data)
+        self.activePlayer = player  // retain to prevent ARC deallocation
         player.prepareToPlay()
         player.play()
         print("✅ [EdgeTTS] Playing \(String(format: "%.1f", player.duration))s via AVAudioPlayer")
-        try await Task.sleep(nanoseconds: UInt64(player.duration * 1_000_000_000) + 200_000_000)
+        try await Task.sleep(nanoseconds: UInt64(player.duration * 1_000_000_000))
     }
 }
 
