@@ -9,6 +9,8 @@ struct SettingsView: View {
     @StateObject private var modelState = ModelStateManager.shared
     @AppStorage("ttsEngine") private var selectedTTSEngine: String = TTSEngine.supertonic.rawValue
     @AppStorage("edgeTTSVoice") private var edgeVoice: String = "ko-KR-SunHiNeural"
+    @AppStorage("supertonicVoice") private var supertonicVoice: String = "M1"
+    @AppStorage("supertonicLang") private var supertonicLang: String = "ko"
     @State private var downloadingModels: Set<String> = []
     @State private var downloadProgress: [String: Double] = [:]
     @State private var downloadErrors: [String: String] = [:]
@@ -122,9 +124,7 @@ struct SettingsView: View {
             HStack {
                 VStack(alignment: .leading, spacing: 4) {
                     if modelState.isCheckingModels {
-                        Label("Checking models...", systemImage: "arrow.clockwise")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
+                        statusRow(icon: "arrow.clockwise", text: "Checking models...")
                     } else {
                         currentModelStatusLabel
                     }
@@ -161,38 +161,47 @@ struct SettingsView: View {
         }
     }
 
+    private func statusRow(icon: String, text: String) -> some View {
+        HStack(spacing: 4) {
+            Image(systemName: icon)
+                .frame(width: 14, alignment: .center)
+            Text(text)
+        }
+        .font(.caption)
+        .foregroundColor(.secondary)
+    }
+    
+    private var langDisplayName: String {
+        switch supertonicLang {
+        case "ko": return "한국어"
+        case "en": return "English"
+        case "es": return "Español"
+        case "pt": return "Português"
+        case "fr": return "Français"
+        default: return supertonicLang
+        }
+    }
+
     @ViewBuilder
     private var currentModelStatusLabel: some View {
         switch modelState.selectedEngine {
         case .parakeet:
             switch modelState.parakeetLoadingState {
             case .loaded:
-                Label("Current STT: \(modelState.parakeetVersion.displayName) (Parakeet)", systemImage: "mic.fill")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                statusRow(icon: "mic.fill", text: "Current STT: \(modelState.parakeetVersion.displayName) (Parakeet)")
             case .loading, .downloading:
-                Label("Current STT: Loading Parakeet...", systemImage: "mic.fill")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                statusRow(icon: "mic.fill", text: "Current STT: Loading Parakeet...")
             default:
-                Label("Current STT: Download a model to get started", systemImage: "mic.fill")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                statusRow(icon: "mic.fill", text: "Current STT: Download a model to get started")
             }
         case .whisperKit:
             if let selected = modelState.selectedModel,
                let model = whisperModels.first(where: { $0.name == selected }) {
-                Label("Current STT: \(model.displayName) (WhisperKit)", systemImage: "mic.fill")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                statusRow(icon: "mic.fill", text: "Current STT: \(model.displayName) (WhisperKit)")
             } else if modelState.downloadedModels.isEmpty {
-                Label("Current STT: Download a model to get started", systemImage: "mic.fill")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                statusRow(icon: "mic.fill", text: "Current STT: Download a model to get started")
             } else {
-                Label("Current STT: Select a downloaded model", systemImage: "mic.fill")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
+                statusRow(icon: "mic.fill", text: "Current STT: Select a downloaded model")
             }
         }
     }
@@ -204,17 +213,11 @@ struct SettingsView: View {
         switch engine {
         case .edge:
             let voiceName = edgeVoice.components(separatedBy: "-").dropFirst(2).joined(separator: "-").replacingOccurrences(of: "Neural", with: "").replacingOccurrences(of: "Multilingual", with: "")
-            Label("Current TTS: Edge TTS (Cloud/Free) [Voice: \(voiceName)]", systemImage: "speaker.wave.2.fill")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            statusRow(icon: "speaker.wave.2.fill", text: "Current TTS: Edge TTS (Cloud/Free) [Voice: \(voiceName)]")
         case .supertonic:
-            Label("Current TTS: Supertonic (Local)", systemImage: "speaker.wave.2.fill")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            statusRow(icon: "speaker.wave.2.fill", text: "Current TTS: Supertonic (Local) [Voice: \(supertonicVoice), Language: \(langDisplayName)]")
         case .gemini:
-            Label("Current TTS: Gemini Live (Cloud)", systemImage: "speaker.wave.2.fill")
-                .font(.caption)
-                .foregroundColor(.secondary)
+            statusRow(icon: "speaker.wave.2.fill", text: "Current TTS: Gemini Live (Cloud)")
         }
     }
     
