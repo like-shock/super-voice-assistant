@@ -1,6 +1,7 @@
 import AVFoundation
 import CryptoKit
 import Foundation
+import Logging
 import Starscream
 
 /// Edge TTS 스트리밍 엔진 — Microsoft Edge의 무료 TTS WebSocket API
@@ -9,6 +10,7 @@ import Starscream
 @available(macOS 14.0, *)
 public class EdgeTTSEngine: TTSAudioProvider {
     public let sampleRate: Double = 24000
+    private let logger = AppLogger.make("EdgeTTS")
     
     private var voiceName: String
     private var rate: String
@@ -109,7 +111,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
     
     public func setVoice(_ name: String) {
         voiceName = name
-        print("🔊 [EdgeTTS] Voice changed to \(name)")
+        logger.info("Voice changed to \(name)")
     }
     
     public func setRate(_ newRate: String) {
@@ -132,9 +134,9 @@ public class EdgeTTSEngine: TTSAudioProvider {
     public func playText(_ text: String) async throws {
         let rawChunks = SmartSentenceSplitter.splitByLines(text)
         let sentences = SmartSentenceSplitter.mergeShortChunks(rawChunks, minChars: 20, maxChars: 80)
-        print("📖 [EdgeTTS] \(rawChunks.count) chunks → merged to \(sentences.count)")
+        logger.info("\(rawChunks.count) chunks → merged to \(sentences.count)")
         for (i, s) in sentences.enumerated() {
-            print("   [\(i+1)] \(s)")
+            logger.debug("  [\(i+1)] \(s)")
         }
         
         guard !sentences.isEmpty else { return }
@@ -157,7 +159,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
             }
             
             guard !mp3Data.isEmpty else { continue }
-            print("🎵 [EdgeTTS] \(index+1)/\(sentences.count): \(mp3Data.count) mp3 bytes")
+            logger.info("\(index+1)/\(sentences.count): \(mp3Data.count) mp3 bytes")
             try await self.playMP3Data(mp3Data)
         }
     }
@@ -251,7 +253,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
         self.activePlayer = player  // retain to prevent ARC deallocation
         player.prepareToPlay()
         player.play()
-        print("✅ [EdgeTTS] Playing \(String(format: "%.1f", player.duration))s via AVAudioPlayer")
+        logger.info("Playing \(String(format: "%.1f", player.duration))s via AVAudioPlayer")
         do {
             try await Task.sleep(nanoseconds: UInt64(player.duration * 1_000_000_000))
         } catch {
@@ -272,6 +274,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
 
 @available(macOS 14.0, *)
 private class EdgeTTSWebSocketHandler: WebSocketDelegate {
+    private let logger = AppLogger.make("EdgeTTS.WS")
     private var socket: WebSocket?
     private let voiceName: String
     private let text: String
@@ -322,7 +325,7 @@ private class EdgeTTSWebSocketHandler: WebSocketDelegate {
             
         case .text(let str):
             if str.contains("Path:turn.end") {
-                print("✅ [EdgeTTS] Received \(totalBytes) mp3 bytes")
+                logger.info("Received \(totalBytes) mp3 bytes")
                 // Yield mp3 data as single chunk — caller handles playback
                 audioContinuation.yield(mp3Buffer)
                 finish(nil)
@@ -341,7 +344,7 @@ private class EdgeTTSWebSocketHandler: WebSocketDelegate {
             }
             
         case .error(let error):
-            print("❌ [EdgeTTS] WebSocket error: \(String(describing: error))")
+            logger.error("WebSocket error: \(String(describing: error))")
             finish(error ?? EdgeTTSError.connectionFailed("Unknown error"))
             
         case .cancelled:
@@ -349,7 +352,7 @@ private class EdgeTTSWebSocketHandler: WebSocketDelegate {
             
         case .disconnected(let reason, let code):
             if !completed {
-                print("⚠️ [EdgeTTS] Disconnected: \(reason) (code: \(code))")
+                logger.warning("Disconnected: \(reason) (code: \(code))")
                 finish(EdgeTTSError.connectionFailed("Disconnected: \(reason)"))
             }
             
