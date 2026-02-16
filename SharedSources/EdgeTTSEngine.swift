@@ -133,6 +133,9 @@ public class EdgeTTSEngine: TTSAudioProvider {
         let rawChunks = SmartSentenceSplitter.splitByLines(text)
         let sentences = SmartSentenceSplitter.mergeShortChunks(rawChunks, minChars: 20, maxChars: 80)
         print("📖 [EdgeTTS] \(rawChunks.count) chunks → merged to \(sentences.count)")
+        for (i, s) in sentences.enumerated() {
+            print("   [\(i+1)] \(s)")
+        }
         
         guard !sentences.isEmpty else { return }
         

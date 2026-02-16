@@ -138,6 +138,9 @@ public class SupertonicEngine: TTSAudioProvider {
                     let rawChunks = SmartSentenceSplitter.splitByLines(text)
                     let sentences = SmartSentenceSplitter.mergeShortChunks(rawChunks, minChars: 20, maxChars: 80)
                     print("📖 [Supertonic] \(rawChunks.count) chunks → merged to \(sentences.count)")
+                    for (i, s) in sentences.enumerated() {
+                        print("   [\(i+1)] \(s)")
+                    }
                     
                     for (index, sentence) in sentences.enumerated() {
                         try Task.checkCancellation()
