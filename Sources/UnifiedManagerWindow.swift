@@ -18,13 +18,13 @@ class UnifiedManagerWindow: NSWindowController {
     override init(window: NSWindow?) {
         // Create the main window
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 850, height: 600),
+            contentRect: NSRect(x: 0, y: 0, width: 850, height: 700),
             styleMask: [.titled, .closable, .resizable, .miniaturizable],
             backing: .buffered,
             defer: false
         )
         window.title = "Super Voice Assistant"
-        window.minSize = NSSize(width: 600, height: 400)
+        window.minSize = NSSize(width: 600, height: 500)
         
         super.init(window: window)
         

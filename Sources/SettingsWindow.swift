@@ -7,6 +7,8 @@ import SharedModels
 @MainActor
 struct SettingsView: View {
     @StateObject private var modelState = ModelStateManager.shared
+    @AppStorage("ttsEngine") private var selectedTTSEngine: String = TTSEngine.supertonic.rawValue
+    @AppStorage("edgeTTSVoice") private var edgeVoice: String = "ko-KR-SunHiNeural"
     @State private var downloadingModels: Set<String> = []
     @State private var downloadProgress: [String: Double] = [:]
     @State private var downloadErrors: [String: String] = [:]
@@ -118,15 +120,23 @@ struct SettingsView: View {
 
             // Footer with current status
             HStack {
-                if modelState.isCheckingModels {
-                    Label("Checking models...", systemImage: "arrow.clockwise")
-                        .font(.caption)
-                        .foregroundColor(.secondary)
-                } else {
-                    currentModelStatusLabel
+                VStack(alignment: .leading, spacing: 2) {
+                    if modelState.isCheckingModels {
+                        Label("Checking models...", systemImage: "arrow.clockwise")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    } else {
+                        currentModelStatusLabel
+                    }
+                    ttsStatusLabel
                 }
 
                 Spacer()
+                
+                Text("v\(appVersion)")
+                    .font(.caption2)
+                    .foregroundColor(.secondary.opacity(0.6))
+                    .padding(.trailing, 4)
 
                 Button("Done") {
                     NSApplication.shared.keyWindow?.close()
@@ -135,7 +145,7 @@ struct SettingsView: View {
             }
             .padding()
         }
-        .frame(width: 600, height: 550)
+        .frame(minWidth: 550, maxWidth: .infinity, minHeight: 500, maxHeight: .infinity)
         .onAppear {
             // If models haven't been checked yet (e.g., settings opened very quickly after app start)
             if modelState.isCheckingModels {
@@ -157,34 +167,61 @@ struct SettingsView: View {
         case .parakeet:
             switch modelState.parakeetLoadingState {
             case .loaded:
-                Label("Current: \(modelState.parakeetVersion.displayName)", systemImage: "checkmark.circle.fill")
+                Label("STT: \(modelState.parakeetVersion.displayName)", systemImage: "mic.fill")
                     .font(.caption)
                     .foregroundColor(.secondary)
             case .loading, .downloading:
-                Label("Loading Parakeet...", systemImage: "arrow.clockwise")
+                Label("STT: Loading Parakeet...", systemImage: "mic.fill")
                     .font(.caption)
                     .foregroundColor(.secondary)
             default:
-                Label("Download a model to get started", systemImage: "arrow.down.circle")
+                Label("STT: Download a model to get started", systemImage: "mic.fill")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
         case .whisperKit:
             if let selected = modelState.selectedModel,
                let model = whisperModels.first(where: { $0.name == selected }) {
-                Label("Current: \(model.displayName)", systemImage: "checkmark.circle.fill")
+                Label("STT: \(model.displayName)", systemImage: "mic.fill")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else if modelState.downloadedModels.isEmpty {
-                Label("Download a model to get started", systemImage: "arrow.down.circle")
+                Label("STT: Download a model to get started", systemImage: "mic.fill")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else {
-                Label("Select a downloaded model", systemImage: "cursorarrow.click")
+                Label("STT: Select a downloaded model", systemImage: "mic.fill")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
         }
+    }
+
+    @ViewBuilder
+    private var ttsStatusLabel: some View {
+        let engine = TTSEngine(rawValue: selectedTTSEngine) ?? .supertonic
+        
+        switch engine {
+        case .edge:
+            let shortVoice = edgeVoice.components(separatedBy: "-").dropFirst(2).joined(separator: "-").replacingOccurrences(of: "Neural", with: "")
+            Label("TTS: Edge (\(shortVoice))", systemImage: "speaker.wave.2.fill")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        case .supertonic:
+            Label("TTS: Supertonic (Local)", systemImage: "speaker.wave.2.fill")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        case .gemini:
+            Label("TTS: Gemini Live", systemImage: "speaker.wave.2.fill")
+                .font(.caption)
+                .foregroundColor(.secondary)
+        }
+    }
+    
+    private var appVersion: String {
+        Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+            ?? Bundle.main.infoDictionary?["CFBundleVersion"] as? String
+            ?? "dev"
     }
 
     /// Get loading state for a Parakeet version, checking filesystem for non-selected versions
@@ -306,7 +343,7 @@ struct SettingsView: View {
 class SettingsWindowController: NSWindowController {
     convenience init() {
         let window = NSWindow(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 500),
+            contentRect: NSRect(x: 0, y: 0, width: 600, height: 700),
             styleMask: [.titled, .closable, .miniaturizable],
             backing: .buffered,
             defer: false
