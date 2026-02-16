@@ -215,8 +215,8 @@ struct SettingsView: View {
         switch engine {
         case .edge:
             let voiceName = edgeVoice.components(separatedBy: "-").dropFirst(2).joined(separator: "-").replacingOccurrences(of: "Neural", with: "").replacingOccurrences(of: "Multilingual", with: "")
-            let rateStr = edgeRate != 0 ? ", Rate: \(edgeRate > 0 ? "+" : "")\(edgeRate)%" : ""
-            statusRow(icon: "speaker.wave.2.fill", text: "Current TTS: Edge TTS (Cloud/Free) [Voice: \(voiceName)\(rateStr)]")
+            let rateStr = "\(edgeRate > 0 ? "+" : "")\(edgeRate)%"
+            statusRow(icon: "speaker.wave.2.fill", text: "Current TTS: Edge TTS (Cloud/Free) [Voice: \(voiceName), Rate: \(rateStr)]")
         case .supertonic:
             statusRow(icon: "speaker.wave.2.fill", text: "Current TTS: Supertonic (Local) [Voice: \(supertonicVoice), Language: \(langDisplayName), Speed: \(String(format: "%.2f", supertonicSpeed))]")
         case .gemini:
