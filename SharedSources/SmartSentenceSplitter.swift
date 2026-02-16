@@ -156,13 +156,27 @@ public struct SmartSentenceSplitter {
     }
     
     /// 줄 단위로 먼저 쪼개고, 긴 줄은 문장 단위로 추가 분할
+    /// 단락 경계 마커 — mergeShortChunks에서 병합 차단용
+    public static let paragraphBreak = "\u{FEFF}__PARA__"
+    
     public static func splitByLines(_ text: String, maxCharsPerChunk: Int = 40) -> [String] {
-        let lines = text.components(separatedBy: .newlines)
+        let rawLines = text.components(separatedBy: .newlines)
             .map { $0.trimmingCharacters(in: .whitespaces) }
-            .filter { !$0.isEmpty }
         
         var result: [String] = []
-        for line in lines {
+        var prevWasEmpty = false
+        
+        for line in rawLines {
+            if line.isEmpty {
+                prevWasEmpty = true
+                continue
+            }
+            // 빈 줄 뒤의 첫 텍스트 → 단락 경계 삽입
+            if prevWasEmpty && !result.isEmpty {
+                result.append(paragraphBreak)
+            }
+            prevWasEmpty = false
+            
             if line.count <= maxCharsPerChunk {
                 result.append(line)
             } else {
@@ -175,7 +189,30 @@ public struct SmartSentenceSplitter {
         return result.isEmpty ? [text] : result
     }
     
+    /// 헤딩/제목 패턴 감지 — 병합 차단 대상
+    private static func isHeading(_ text: String) -> Bool {
+        let trimmed = text.trimmingCharacters(in: .whitespaces)
+        // "A.", "E.", "1.", "10." 등 번호+마침표로 시작
+        if let first = trimmed.first {
+            if first.isLetter && trimmed.count >= 2 && trimmed.dropFirst().first == "." {
+                return true
+            }
+            if first.isNumber {
+                if let dotIndex = trimmed.firstIndex(of: "."),
+                   trimmed[trimmed.startIndex..<dotIndex].allSatisfy({ $0.isNumber }) {
+                    return true
+                }
+            }
+        }
+        // "#", "##" 마크다운 헤딩
+        if trimmed.hasPrefix("#") { return true }
+        // "- ", "• " 리스트 아이템
+        if trimmed.hasPrefix("- ") || trimmed.hasPrefix("• ") { return true }
+        return false
+    }
+    
     /// 짧은 청크를 병합하여 WebSocket 왕복 횟수 최소화
+    /// - 단락 경계(빈 줄)와 헤딩 패턴에서는 병합하지 않음
     public static func mergeShortChunks(
         _ chunks: [String],
         minChars: Int = 20,
@@ -190,6 +227,27 @@ public struct SmartSentenceSplitter {
         let sentenceEndings: Set<Character> = [".", "!", "?", "。", "！", "？"]
         
         for chunk in chunks {
+            // 단락 경계 → 버퍼 flush, 병합 차단
+            if chunk == paragraphBreak {
+                if !buffer.isEmpty {
+                    result.append(buffer)
+                    buffer = ""
+                }
+                continue
+            }
+            
+            // 헤딩 패턴 → 버퍼 flush 후 헤딩을 새 버퍼로
+            if isHeading(chunk) {
+                if !buffer.isEmpty {
+                    result.append(buffer)
+                }
+                buffer = chunk
+                // 헤딩 다음 줄과도 합치지 않도록 바로 flush
+                result.append(buffer)
+                buffer = ""
+                continue
+            }
+            
             if buffer.isEmpty {
                 buffer = chunk
             } else if (buffer.count + separator.count + chunk.count) <= maxChars {
@@ -204,9 +262,12 @@ public struct SmartSentenceSplitter {
             }
         }
         
-        // 마지막 버퍼: 너무 짧으면 이전 청크에 붙임
+        // 마지막 버퍼: 너무 짧으면 이전 청크에 붙임 (단, 이전이 헤딩이 아닐 때)
         if !buffer.isEmpty {
-            if buffer.count < minChars, !result.isEmpty {
+            if buffer.count < minChars, !result.isEmpty, !isHeading(result.last!) {
+                if let last = result.last?.last, !sentenceEndings.contains(last) {
+                    result[result.count - 1] += "."
+                }
                 result[result.count - 1] += separator + buffer
             } else {
                 result.append(buffer)
