@@ -79,13 +79,28 @@ Auto-migration from legacy paths on first launch:
 - MP3 output format (`audio-24khz-48kbitrate-mono-mp3`), sentence-level streaming
 - Korean voices: SunHi (여성), InJoon (남성), HyunsuMultilingual (남성/다국어)
 - Direct MP3 playback via AVAudioPlayer per sentence
+- Prefetch pipeline: next sentence synthesized during current playback (max 2 concurrent WebSocket connections)
+- AVAudioPlayer retained in instance to prevent ARC deallocation, immediate stop on cancel
+
+**Smart Text Processing (shared by Edge TTS & Supertonic)**:
+- `SmartSentenceSplitter.mergeShortChunks()` combines short lines (min 20, max 80 chars) to reduce WebSocket/synthesis round-trips
+- Paragraph boundaries (blank lines) block merging across sections
+- Heading patterns (`A.`, `1.`, `#`, `-`, `•`) are never merged — emitted as standalone chunks
+- Period auto-inserted between merged chunks for natural TTS pauses
+
+**Notification API**:
+- Uses deprecated `NSUserNotification` (not `UNUserNotificationCenter`)
+- Reason: bare binary from `swift build` has no `.app` bundle → `UNUserNotificationCenter.current()` crashes with `bundleProxyForCurrentProcess is nil`
+- See `docs/migrate-to-UNUserNotification.md` for future migration plan
 
 **Features**:
 - ✅ Cmd+Opt+S keyboard shortcut for reading selected text aloud
 - ✅ Triple engine: Gemini (cloud) / Supertonic (local/offline) / Edge TTS (cloud, free)
 - ✅ Settings UI for engine selection, voice style, language, speed
 - ✅ Sequential streaming for smooth, natural speech with minimal latency
-- ✅ Smart sentence splitting for optimal speech flow
+- ✅ Smart sentence splitting with short chunk merging for optimal speech flow
+- ✅ Prefetch pipeline for Edge TTS (near-zero inter-sentence gap)
+- ✅ Immediate playback stop on cancel (AVAudioPlayer.stop())
 - ✅ Automatic fallback to Supertonic when GEMINI_API_KEY is missing
 
 ### STT Engines (WhisperKit / Parakeet / Gemini)

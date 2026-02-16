@@ -27,11 +27,13 @@ https://github.com/user-attachments/assets/0b7f481f-4fec-4811-87ef-13737e0efac4
 
 **Streaming Text-to-Speech**
 - Press Command+Option+S to read selected text aloud
-- Press Command+Option+S again while reading to cancel the operation
+- Press Command+Option+S again while reading to instantly cancel playback
 - **Triple engine support:**
   - **Supertonic (Local)** — offline, no API key, ~160ms/sentence on Apple Silicon via ONNX Runtime
   - **Edge TTS (Cloud)** — free, no API key, high-quality Microsoft neural voices
   - **Gemini Live (Cloud)** — streaming WebSocket, requires GEMINI_API_KEY
+- **Smart text processing** — short lines merged to reduce synthesis overhead; paragraph boundaries and headings preserved for natural reading flow
+- **Prefetch pipeline** (Edge TTS) — next sentence synthesized during current playback for near-zero gaps
 - Korean, English, and more languages supported
 - Multiple voice styles per engine with configurable speed
 - Engine selection in Settings UI
@@ -256,7 +258,7 @@ SharedSources/                    # Shared components (no AppKit dependency)
 ├── GeminiAudioTranscriber.swift  # Gemini API transcription
 ├── ParakeetTranscriber.swift     # FluidAudio Parakeet wrapper
 ├── WhisperModelManager.swift     # WhisperKit model path + migration
-├── SmartSentenceSplitter.swift   # Text processing for TTS
+├── SmartSentenceSplitter.swift   # Text splitting + short chunk merging for TTS
 ├── VideoTranscriber.swift        # Gemini API video transcription
 └── ...
 
