@@ -187,10 +187,16 @@ public struct SmartSentenceSplitter {
         var result: [String] = []
         var buffer = ""
         
+        let sentenceEndings: Set<Character> = [".", "!", "?", "。", "！", "？"]
+        
         for chunk in chunks {
             if buffer.isEmpty {
                 buffer = chunk
             } else if (buffer.count + separator.count + chunk.count) <= maxChars {
+                // 병합 시 이전 버퍼 끝에 문장부호 없으면 마침표 추가 (TTS 끊어읽기용)
+                if let last = buffer.last, !sentenceEndings.contains(last) {
+                    buffer += "."
+                }
                 buffer += separator + chunk
             } else {
                 result.append(buffer)
