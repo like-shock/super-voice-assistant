@@ -319,7 +319,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     /// Edge TTS 엔진 초기화
     func initEdgeTTS() {
         let voice = UserDefaults.standard.string(forKey: "edgeTTSVoice") ?? "ko-KR-SunHiNeural"
-        let rate = UserDefaults.standard.string(forKey: "edgeTTSRate") ?? "+0%"
+        let rateInt = UserDefaults.standard.integer(forKey: "edgeTTSRate")  // defaults to 0
+        let rate = "\(rateInt > 0 ? "+" : "")\(rateInt)%"
         
         if #available(macOS 14.0, *) {
             edgeTTSEngine = EdgeTTSEngine(voiceName: voice, rate: rate)

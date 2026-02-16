@@ -157,6 +157,7 @@ struct TTSSettingsSection: View {
     // MARK: - Edge TTS Card
     
     @AppStorage("edgeTTSVoice") private var edgeVoice: String = "ko-KR-SunHiNeural"
+    @AppStorage("edgeTTSRate") private var edgeRate: Int = 0  // -50 ~ +100 percent
     
     private static let edgeVoicePresets: [(name: String, id: String)] = [
         ("선히 (여성)", "ko-KR-SunHiNeural"),
@@ -207,6 +208,20 @@ struct TTSSettingsSection: View {
                             applyEdgeVoiceChange(newValue)
                         }
                     }
+                    
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("Rate: \(edgeRate > 0 ? "+" : "")\(edgeRate)%")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Slider(value: Binding(
+                            get: { Double(edgeRate) },
+                            set: { edgeRate = Int($0) }
+                        ), in: -50...100, step: 5)
+                            .frame(minWidth: 120)
+                            .onChange(of: edgeRate) { _, newValue in
+                                applyEdgeRateChange(newValue)
+                            }
+                    }
                 }
             }
         }
@@ -230,6 +245,13 @@ struct TTSSettingsSection: View {
            let engine = appDelegate.edgeTTSEngine {
             engine.setVoice(voice)
             previewEdgeVoice()
+        }
+    }
+    
+    private func applyEdgeRateChange(_ rate: Int) {
+        if let appDelegate = NSApplication.shared.delegate as? AppDelegate,
+           let engine = appDelegate.edgeTTSEngine {
+            engine.setRate("\(rate > 0 ? "+" : "")\(rate)%")
         }
     }
     
