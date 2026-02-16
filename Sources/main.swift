@@ -596,6 +596,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                             
                         } catch is CancellationError {
                             print("🛑 Audio streaming was cancelled")
+                        } catch where Task.isCancelled || "\(error)".contains("CancellationError") {
+                            // CancellationError wrapped in another error (e.g. playbackError)
+                            print("🛑 Audio streaming was cancelled (wrapped)")
                         } catch {
                             print("❌ Streaming TTS Error: \(error)")
                             
