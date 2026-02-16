@@ -175,6 +175,41 @@ public struct SmartSentenceSplitter {
         return result.isEmpty ? [text] : result
     }
     
+    /// 짧은 청크를 병합하여 WebSocket 왕복 횟수 최소화
+    public static func mergeShortChunks(
+        _ chunks: [String],
+        minChars: Int = 20,
+        maxChars: Int = 80,
+        separator: String = " "
+    ) -> [String] {
+        guard !chunks.isEmpty else { return chunks }
+        
+        var result: [String] = []
+        var buffer = ""
+        
+        for chunk in chunks {
+            if buffer.isEmpty {
+                buffer = chunk
+            } else if (buffer.count + separator.count + chunk.count) <= maxChars {
+                buffer += separator + chunk
+            } else {
+                result.append(buffer)
+                buffer = chunk
+            }
+        }
+        
+        // 마지막 버퍼: 너무 짧으면 이전 청크에 붙임
+        if !buffer.isEmpty {
+            if buffer.count < minChars, !result.isEmpty {
+                result[result.count - 1] += separator + buffer
+            } else {
+                result.append(buffer)
+            }
+        }
+        
+        return result
+    }
+    
     public static func analyzeText(_ text: String) -> (sentences: [String], wordCounts: [Int]) {
         let sentences = splitIntoSentences(text)
         let wordCounts = sentences.map { sentence in

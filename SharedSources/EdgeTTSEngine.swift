@@ -126,18 +126,33 @@ public class EdgeTTSEngine: TTSAudioProvider {
         "EdgeTTSEngine(voice=\(voiceName), rate=\(rate), pitch=\(pitch))"
     }
     
-    /// 문장 단위로 분할 → 각 문장 WebSocket 합성 → mp3 직접 재생 (Supertonic과 동일 패턴)
+    /// 문장 단위로 분할 → 짧은 줄 병합 → prefetch 1개(최대 소켓 2개) → mp3 직접 재생
     public func playText(_ text: String) async throws {
-        let sentences = SmartSentenceSplitter.splitByLines(text)
-        print("📖 [EdgeTTS] Split into \(sentences.count) sentences")
+        let rawChunks = SmartSentenceSplitter.splitByLines(text)
+        let sentences = SmartSentenceSplitter.mergeShortChunks(rawChunks, minChars: 20, maxChars: 80)
+        print("📖 [EdgeTTS] \(rawChunks.count) chunks → merged to \(sentences.count)")
         
-        for (index, sentence) in sentences.enumerated() {
+        guard !sentences.isEmpty else { return }
+        
+        // 첫 문장 합성 시작
+        var nextTask: Task<Data, Error> = Task {
+            try await self.synthesizeToMP3(sentences[0])
+        }
+        
+        for (index, _) in sentences.enumerated() {
             try Task.checkCancellation()
             
-            let mp3Data = try await synthesizeToMP3(sentence)
-            guard !mp3Data.isEmpty else { continue }
+            // 현재 문장 mp3 수거 (이미 합성 중이거나 완료)
+            let mp3Data = try await nextTask.value
             
-            print("🎵 [EdgeTTS] Sentence \(index+1)/\(sentences.count): \(mp3Data.count) mp3 bytes")
+            // 다음 문장 prefetch 시작 (재생과 병렬, 최대 소켓 2개)
+            if index + 1 < sentences.count {
+                let nextSentence = sentences[index + 1]
+                nextTask = Task { try await self.synthesizeToMP3(nextSentence) }
+            }
+            
+            guard !mp3Data.isEmpty else { continue }
+            print("🎵 [EdgeTTS] \(index+1)/\(sentences.count): \(mp3Data.count) mp3 bytes")
             try await Self.playMP3Data(mp3Data)
         }
     }
