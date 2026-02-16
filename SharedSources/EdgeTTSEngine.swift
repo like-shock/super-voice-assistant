@@ -249,7 +249,19 @@ public class EdgeTTSEngine: TTSAudioProvider {
         player.prepareToPlay()
         player.play()
         print("✅ [EdgeTTS] Playing \(String(format: "%.1f", player.duration))s via AVAudioPlayer")
-        try await Task.sleep(nanoseconds: UInt64(player.duration * 1_000_000_000))
+        do {
+            try await Task.sleep(nanoseconds: UInt64(player.duration * 1_000_000_000))
+        } catch {
+            player.stop()
+            self.activePlayer = nil
+            throw error
+        }
+    }
+    
+    /// 재생 즉시 중지
+    public func stopPlayback() {
+        activePlayer?.stop()
+        activePlayer = nil
     }
 }
 

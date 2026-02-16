@@ -525,8 +525,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         currentStreamingTask?.cancel()
         currentStreamingTask = nil
         
-        // Stop the audio player
+        // Stop the audio players
         streamingPlayer?.stopAudioEngine()
+        edgeTTSEngine?.stopPlayback()
         
         // Reset playing state
         isCurrentlyPlaying = false
