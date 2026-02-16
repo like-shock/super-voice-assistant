@@ -101,7 +101,7 @@ struct TTSSettingsSection: View {
                         }
                         .labelsHidden()
                         .frame(width: 70)
-                        .onChange(of: voiceName) { newValue in
+                        .onChange(of: voiceName) { _, newValue in
                             applyVoiceChange(newValue)
                         }
                     }
@@ -120,7 +120,7 @@ struct TTSSettingsSection: View {
                         }
                         .labelsHidden()
                         .frame(width: 90)
-                        .onChange(of: lang) { newValue in
+                        .onChange(of: lang) { _, newValue in
                             applyLangChange(newValue)
                         }
                     }
@@ -132,7 +132,7 @@ struct TTSSettingsSection: View {
                             .foregroundColor(.secondary)
                         Slider(value: $speed, in: 0.7...2.0, step: 0.05)
                             .frame(minWidth: 120)
-                            .onChange(of: speed) { newValue in
+                            .onChange(of: speed) { _, newValue in
                                 applySpeedChange(Float(newValue))
                             }
                     }
@@ -203,7 +203,7 @@ struct TTSSettingsSection: View {
                         }
                         .labelsHidden()
                         .frame(width: 150)
-                        .onChange(of: edgeVoice) { newValue in
+                        .onChange(of: edgeVoice) { _, newValue in
                             applyEdgeVoiceChange(newValue)
                         }
                     }
