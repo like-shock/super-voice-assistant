@@ -7,8 +7,6 @@ import SharedModels
 import Combine
 import ApplicationServices
 import Foundation
-import UserNotifications
-
 // Environment variable loading
 func loadEnvironmentVariables() {
     let fileManager = FileManager.default
@@ -33,40 +31,17 @@ func loadEnvironmentVariables() {
     }
 }
 
-// MARK: - UserNotifications Helper
-
-func requestNotificationPermission() {
-    UNUserNotificationCenter.current().requestAuthorization(options: [.alert, .sound]) { granted, error in
-        if let error = error {
-            print("⚠️ Notification permission error: \(error)")
-        } else if !granted {
-            print("⚠️ Notification permission not granted")
-        }
-    }
-}
+// MARK: - Notification Helper (NSUserNotification — works without .app bundle)
 
 func sendNotification(title: String, subtitle: String? = nil, body: String, sound: Bool = false) {
-    let content = UNMutableNotificationContent()
-    content.title = title
-    if let subtitle = subtitle {
-        content.subtitle = subtitle
-    }
-    content.body = body
+    let notification = NSUserNotification()
+    notification.title = title
+    notification.subtitle = subtitle
+    notification.informativeText = body
     if sound {
-        content.sound = .default
+        notification.soundName = NSUserNotificationDefaultSoundName
     }
-    
-    let request = UNNotificationRequest(
-        identifier: UUID().uuidString,
-        content: content,
-        trigger: nil  // Deliver immediately
-    )
-    
-    UNUserNotificationCenter.current().add(request) { error in
-        if let error = error {
-            print("⚠️ Failed to deliver notification: \(error)")
-        }
-    }
+    NSUserNotificationCenter.default.deliver(notification)
 }
 
 extension KeyboardShortcuts.Name {
@@ -103,9 +78,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     private var videoTranscriber = VideoTranscriber()
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Request notification permission
-        requestNotificationPermission()
-        
         // Load environment variables
         loadEnvironmentVariables()
         
