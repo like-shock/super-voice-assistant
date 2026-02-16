@@ -120,7 +120,7 @@ struct SettingsView: View {
 
             // Footer with current status
             HStack {
-                VStack(alignment: .leading, spacing: 2) {
+                VStack(alignment: .leading, spacing: 4) {
                     if modelState.isCheckingModels {
                         Label("Checking models...", systemImage: "arrow.clockwise")
                             .font(.caption)
@@ -167,30 +167,30 @@ struct SettingsView: View {
         case .parakeet:
             switch modelState.parakeetLoadingState {
             case .loaded:
-                Label("STT: \(modelState.parakeetVersion.displayName)", systemImage: "mic.fill")
+                Label("Current STT: Parakeet \(modelState.parakeetVersion.displayName)", systemImage: "mic.fill")
                     .font(.caption)
                     .foregroundColor(.secondary)
             case .loading, .downloading:
-                Label("STT: Loading Parakeet...", systemImage: "mic.fill")
+                Label("Current STT: Loading Parakeet...", systemImage: "mic.fill")
                     .font(.caption)
                     .foregroundColor(.secondary)
             default:
-                Label("STT: Download a model to get started", systemImage: "mic.fill")
+                Label("Current STT: Download a model to get started", systemImage: "mic.fill")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
         case .whisperKit:
             if let selected = modelState.selectedModel,
                let model = whisperModels.first(where: { $0.name == selected }) {
-                Label("STT: \(model.displayName)", systemImage: "mic.fill")
+                Label("Current STT: WhisperKit \(model.displayName)", systemImage: "mic.fill")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else if modelState.downloadedModels.isEmpty {
-                Label("STT: Download a model to get started", systemImage: "mic.fill")
+                Label("Current STT: Download a model to get started", systemImage: "mic.fill")
                     .font(.caption)
                     .foregroundColor(.secondary)
             } else {
-                Label("STT: Select a downloaded model", systemImage: "mic.fill")
+                Label("Current STT: Select a downloaded model", systemImage: "mic.fill")
                     .font(.caption)
                     .foregroundColor(.secondary)
             }
@@ -203,16 +203,16 @@ struct SettingsView: View {
         
         switch engine {
         case .edge:
-            let shortVoice = edgeVoice.components(separatedBy: "-").dropFirst(2).joined(separator: "-").replacingOccurrences(of: "Neural", with: "")
-            Label("TTS: Edge (\(shortVoice))", systemImage: "speaker.wave.2.fill")
+            let voiceName = edgeVoice.components(separatedBy: "-").dropFirst(2).joined(separator: "-").replacingOccurrences(of: "Neural", with: "").replacingOccurrences(of: "Multilingual", with: "")
+            Label("Current TTS: Edge TTS (Voice: \(voiceName))", systemImage: "speaker.wave.2.fill")
                 .font(.caption)
                 .foregroundColor(.secondary)
         case .supertonic:
-            Label("TTS: Supertonic (Local)", systemImage: "speaker.wave.2.fill")
+            Label("Current TTS: Supertonic (Local)", systemImage: "speaker.wave.2.fill")
                 .font(.caption)
                 .foregroundColor(.secondary)
         case .gemini:
-            Label("TTS: Gemini Live", systemImage: "speaker.wave.2.fill")
+            Label("Current TTS: Gemini Live (Cloud)", systemImage: "speaker.wave.2.fill")
                 .font(.caption)
                 .foregroundColor(.secondary)
         }
