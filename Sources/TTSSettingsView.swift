@@ -163,6 +163,8 @@ struct TTSSettingsSection: View {
         ("선히 (여성)", "ko-KR-SunHiNeural"),
         ("인준 (남성)", "ko-KR-InJoonNeural"),
         ("현수 (남성/다국어)", "ko-KR-HyunsuMultilingualNeural"),
+        ("Ava (여성/다국어)", "en-US-AvaMultilingualNeural"),
+        ("Emma (여성/다국어)", "en-US-EmmaMultilingualNeural"),
         ("Jenny (EN-F)", "en-US-JennyNeural"),
         ("Aria (EN-F)", "en-US-AriaNeural"),
         ("Guy (EN-M)", "en-US-GuyNeural"),
