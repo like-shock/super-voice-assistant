@@ -926,7 +926,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
-app.setActivationPolicy(.regular) // Show in dock and cmd+tab
+app.setActivationPolicy(.accessory) // Menu bar only, no dock icon
 
 // Set the app icon from our custom ICNS file
 if let iconURL = Bundle.module.url(forResource: "AppIcon", withExtension: "icns"),
