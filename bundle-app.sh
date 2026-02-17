@@ -60,5 +60,5 @@ echo "✅ Bundle ready: $APP_DIR"
 # 4. Run
 if [ "$RUN" = true ]; then
     echo "🚀 Launching..."
-    open "$APP_DIR"
+    exec "$MACOS_DIR/SuperVoiceAssistant"
 fi
