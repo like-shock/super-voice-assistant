@@ -1,4 +1,9 @@
 import Foundation
+import Logging
+import SharedModels
+import SharedModels
+
+private let logger = AppLogger.make("History")
 
 struct TranscriptionEntry: Codable {
     let id: UUID
@@ -33,16 +38,16 @@ class TranscriptionHistory {
     
     private func loadHistory() {
         guard FileManager.default.fileExists(atPath: historyFileURL.path) else {
-            print("No history file found")
+            logger.info("No history file found")
             return
         }
         
         do {
             let data = try Data(contentsOf: historyFileURL)
             entries = try JSONDecoder().decode([TranscriptionEntry].self, from: data)
-            print("Loaded \(entries.count) history entries")
+            logger.info("Loaded \(entries.count) history entries")
         } catch {
-            print("Failed to load history: \(error)")
+            logger.info("Failed to load history: \(error)")
         }
     }
     
@@ -51,7 +56,7 @@ class TranscriptionHistory {
             let data = try JSONEncoder().encode(entries)
             try data.write(to: historyFileURL)
         } catch {
-            print("Failed to save history: \(error)")
+            logger.info("Failed to save history: \(error)")
         }
     }
     
@@ -69,7 +74,7 @@ class TranscriptionHistory {
         // Update stats
         TranscriptionStats.shared.incrementTranscriptionCount()
         
-        print("Added transcription to history: \(text)")
+        logger.info("Added transcription to history: \(text)")
     }
     
     func getEntries() -> [TranscriptionEntry] {

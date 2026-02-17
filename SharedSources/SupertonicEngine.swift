@@ -1,4 +1,5 @@
 import Foundation
+import Logging
 import OnnxRuntimeBindings
 
 /// Swift 네이티브 Supertonic TTS 엔진
@@ -6,6 +7,7 @@ import OnnxRuntimeBindings
 @available(macOS 14.0, *)
 public class SupertonicEngine: TTSAudioProvider {
     public var sampleRate: Double { Double(tts?.sampleRate ?? 44100) }
+    private let logger = AppLogger.make("Supertonic")
     
     private var tts: TextToSpeech?
     private var style: Style?
@@ -44,9 +46,9 @@ public class SupertonicEngine: TTSAudioProvider {
                 if fm.fileExists(atPath: dst) { continue }
                 try fm.copyItem(atPath: src, toPath: dst)
             }
-            print("✅ [Supertonic] Migrated models from ~/.cache/supertonic2 to Application Support")
+            AppLogger.make("Supertonic").info("Migrated models from ~/.cache/supertonic2 to Application Support")
         } catch {
-            print("⚠️ [Supertonic] Migration failed: \(error)")
+            AppLogger.make("Supertonic").warning("Migration failed: \(error)")
         }
     }
     
@@ -101,7 +103,7 @@ public class SupertonicEngine: TTSAudioProvider {
             throw SupertonicEngineError.voiceStyleNotFound(voiceName)
         }
         
-        print("🔊 [Supertonic] Loading model from \(onnxDir)...")
+        logger.info("Loading model from \(onnxDir)...")
         let startTime = Date()
         
         env = try ORTEnv(loggingLevel: .warning)
@@ -109,7 +111,7 @@ public class SupertonicEngine: TTSAudioProvider {
         style = try loadVoiceStyle([voiceStylePath], verbose: false)
         
         let elapsed = Date().timeIntervalSince(startTime)
-        print("✅ [Supertonic] Model loaded in \(String(format: "%.2f", elapsed))s (voice: \(voiceName), lang: \(lang), sampleRate: \(tts!.sampleRate))")
+        logger.info("Model loaded in \(String(format: "%.2f", elapsed))s (voice: \(voiceName), lang: \(lang), sampleRate: \(tts!.sampleRate))")
         
         isLoaded = true
     }
@@ -120,7 +122,7 @@ public class SupertonicEngine: TTSAudioProvider {
         style = nil
         env = nil
         isLoaded = false
-        print("🛑 [Supertonic] Engine unloaded")
+        logger.info("Engine unloaded")
     }
     
     // MARK: - TTSAudioProvider
@@ -137,7 +139,10 @@ public class SupertonicEngine: TTSAudioProvider {
                     
                     let rawChunks = SmartSentenceSplitter.splitByLines(text)
                     let sentences = SmartSentenceSplitter.mergeShortChunks(rawChunks, minChars: 20, maxChars: 80)
-                    print("📖 [Supertonic] \(rawChunks.count) chunks → merged to \(sentences.count)")
+                    self.logger.info("\(rawChunks.count) chunks → merged to \(sentences.count)")
+                    for (i, s) in sentences.enumerated() {
+                        self.logger.debug("  [\(i+1)] \(s)")
+                    }
                     
                     for (index, sentence) in sentences.enumerated() {
                         try Task.checkCancellation()
@@ -145,7 +150,7 @@ public class SupertonicEngine: TTSAudioProvider {
                         let pcmData = try await self.synthesize(sentence)
                         
                         if !pcmData.isEmpty {
-                            print("🎵 [Supertonic] Sentence \(index+1)/\(sentences.count): \(pcmData.count) bytes (\(String(format: "%.1f", Double(pcmData.count) / 2.0 / self.sampleRate))s)")
+                            self.logger.info("\(index+1)/\(sentences.count): \(pcmData.count) bytes (\(String(format: "%.1f", Double(pcmData.count) / 2.0 / self.sampleRate))s)")
                             continuation.yield(pcmData)
                         }
                         
@@ -185,7 +190,7 @@ public class SupertonicEngine: TTSAudioProvider {
         let result = try tts.call(text, lang, style, totalSteps, speed: speed, silenceDuration: 0.3)
         
         let elapsed = Date().timeIntervalSince(startTime)
-        print("🐍 [Supertonic] Synthesized \(text.prefix(30))... → \(String(format: "%.2f", result.duration))s audio in \(String(format: "%.3f", elapsed))s")
+        logger.info("Synthesized \(text.prefix(30))... → \(String(format: "%.2f", result.duration))s audio in \(String(format: "%.3f", elapsed))s")
         
         // Float → 16-bit PCM 변환
         let actualLen = Int(Float(tts.sampleRate) * result.duration)
@@ -212,19 +217,19 @@ public class SupertonicEngine: TTSAudioProvider {
         
         style = try loadVoiceStyle([voiceStylePath], verbose: false)
         voiceName = name
-        print("🔊 [Supertonic] Voice changed to \(name)")
+        logger.info("Voice changed to \(name)")
     }
     
     /// 언어 변경
     public func setLang(_ newLang: String) {
         lang = newLang
-        print("🔊 [Supertonic] Language changed to \(newLang)")
+        logger.info("Language changed to \(newLang)")
     }
     
     /// 속도 변경
     public func setSpeed(_ newSpeed: Float) {
         speed = newSpeed
-        print("🔊 [Supertonic] Speed changed to \(newSpeed)")
+        logger.info("Speed changed to \(newSpeed)")
     }
     
     /// 현재 설정 정보

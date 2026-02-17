@@ -3,6 +3,9 @@ import SwiftUI
 import WhisperKit
 import Hub
 import SharedModels
+import Logging
+
+private let logger = AppLogger.make("Settings")
 
 @MainActor
 struct SettingsView: View {
@@ -259,7 +262,7 @@ struct SettingsView: View {
             if FileManager.default.fileExists(atPath: modelPath.path) && 
                !modelState.downloadedModels.contains(model.name) {
                 // This model exists on disk but isn't marked as complete
-                print("Model \(model.name) exists but is incomplete, will auto-resume download...")
+                logger.info("Model \(model.name) exists but is incomplete, will auto-resume download...")
                 partiallyDownloadedModels.append(model.name)
             }
         }
@@ -280,17 +283,17 @@ struct SettingsView: View {
     
     func downloadModel(_ modelName: String) {
         guard let model = whisperModels.first(where: { $0.name == modelName }) else {
-            print("Model not found: \(modelName)")
+            logger.info("Model not found: \(modelName)")
             return
         }
 
         // Prevent concurrent downloads of the same model
         guard !downloadingModels.contains(modelName) else {
-            print("Model \(modelName) is already downloading, skipping...")
+            logger.info("Model \(modelName) is already downloading, skipping...")
             return
         }
 
-        print("Starting download of \(model.displayName)...")
+        logger.info("Starting download of \(model.displayName)...")
         downloadingModels.insert(modelName)
         downloadProgress[modelName] = 0.0
         modelState.setLoadingState(for: modelName, state: .downloading(progress: 0.0))
@@ -331,10 +334,10 @@ struct SettingsView: View {
                     }
                 }
                 
-                print("Successfully downloaded \(model.displayName)")
+                logger.info("Successfully downloaded \(model.displayName)")
                 
             } catch {
-                print("Error downloading model: \(error)")
+                logger.info("Error downloading model: \(error)")
                 await MainActor.run {
                     downloadErrors[modelName] = error.localizedDescription
                     downloadingModels.remove(modelName)

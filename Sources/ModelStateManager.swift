@@ -2,6 +2,9 @@ import Foundation
 import SwiftUI
 import WhisperKit
 import SharedModels
+import Logging
+
+private let logger = AppLogger.make("ModelState")
 
 /// Transcription engine selection
 public enum TranscriptionEngine: String, CaseIterable {
@@ -125,7 +128,7 @@ class ModelStateManager: ObservableObject {
                         return (model.name, true)
                     }
                     
-                    print("Model \(model.name) exists but missing essential files")
+                    logger.info("Model \(model.name) exists but missing essential files")
                     return (model.name, false)
                 }
             }
@@ -241,7 +244,7 @@ class ModelStateManager: ObservableObject {
         }
         
         guard let modelInfo = ModelData.availableModels.first(where: { $0.name == modelName }) else {
-            print("Model info not found for: \(modelName)")
+            logger.info("Model info not found for: \(modelName)")
             currentLoadingTask = nil
             return
         }
@@ -250,7 +253,7 @@ class ModelStateManager: ObservableObject {
         let modelPath = getModelPath(for: whisperKitModelName)
 
         guard WhisperModelManager.shared.isModelDownloaded(whisperKitModelName) else {
-            print("Model \(modelName) is not downloaded")
+            logger.info("Model \(modelName) is not downloaded")
             currentLoadingTask = nil
             return
         }
@@ -264,7 +267,7 @@ class ModelStateManager: ObservableObject {
             if Task.isCancelled { return nil }
             
             do {
-                print("🎙️ [WhisperKit] Loading model: \(modelName) from \(modelPath.path)")
+                logger.info("🎙️ [WhisperKit] Loading model: \(modelName) from \(modelPath.path)")
                 // Use ANE for best inference performance.
                 // Requires stable codesign identity for CoreML e5rt cache reuse
                 // (run ./setup-codesign.sh + ./build-and-run.sh).
@@ -280,10 +283,10 @@ class ModelStateManager: ObservableObject {
                 }
                 
                 await ModelStateManager.shared.setLoadedWhisperKit(whisperKit, for: modelName)
-                print("✅ [WhisperKit] Model loaded successfully")
+                logger.info("[WhisperKit] Model loaded successfully")
                 return whisperKit
             } catch {
-                print("❌ [WhisperKit] Failed to load: \(error)")
+                logger.error("[WhisperKit] Failed to load: \(error)")
                 await ModelStateManager.shared.setLoadingState(for: modelName, state: .downloaded)
                 return nil
             }
@@ -308,7 +311,7 @@ class ModelStateManager: ObservableObject {
     func loadParakeetModel() async {
         // Skip if already downloading or loading
         guard parakeetLoadingState != .downloading && parakeetLoadingState != .loading else {
-            print("Parakeet model already downloading/loading, skipping...")
+            logger.info("Parakeet model already downloading/loading, skipping...")
             return
         }
 
@@ -322,14 +325,14 @@ class ModelStateManager: ObservableObject {
 
         // Set appropriate state
         parakeetLoadingState = isAlreadyDownloaded ? .loading : .downloading
-        print("🦜 [Parakeet] Loading model: \(modelName) from \(modelPath.path)")
+        logger.info("[Parakeet] Loading model: \(modelName) from \(modelPath.path)")
 
         // Load off MainActor to prevent CoreML deadlock — CoreML dispatches
         // to MainActor internally during model compilation.
         let version = parakeetVersion
         let task = Task.detached(priority: .userInitiated) { () -> Void in
             if Task.isCancelled {
-                print("Parakeet model loading cancelled")
+                logger.info("Parakeet model loading cancelled")
                 return
             }
 
@@ -338,7 +341,7 @@ class ModelStateManager: ObservableObject {
                 try await transcriber.loadModel(version: version)
 
                 if Task.isCancelled {
-                    print("Parakeet model loading cancelled after load")
+                    logger.info("Parakeet model loading cancelled after load")
                     await MainActor.run {
                         ModelStateManager.shared.parakeetLoadingState = .notDownloaded
                     }
@@ -350,13 +353,13 @@ class ModelStateManager: ObservableObject {
                     ModelStateManager.shared.parakeetLoadingState = .loaded
                 }
 
-                print("Parakeet model loaded successfully: \(version.displayName)")
+                logger.info("Parakeet model loaded successfully: \(version.displayName)")
 
             } catch {
                 if Task.isCancelled {
-                    print("Parakeet model loading cancelled: \(error)")
+                    logger.info("Parakeet model loading cancelled: \(error)")
                 } else {
-                    print("Failed to load Parakeet model: \(error)")
+                    logger.info("Failed to load Parakeet model: \(error)")
                 }
 
                 await MainActor.run {
@@ -385,7 +388,7 @@ class ModelStateManager: ObservableObject {
         } else {
             parakeetLoadingState = .notDownloaded
         }
-        print("Parakeet model unloaded")
+        logger.info("Parakeet model unloaded")
     }
 
     /// Unload WhisperKit model to free memory
@@ -395,6 +398,6 @@ class ModelStateManager: ObservableObject {
         for model in ModelData.availableModels where downloadedModels.contains(model.name) {
             setLoadingState(for: model.name, state: .downloaded)
         }
-        print("WhisperKit model unloaded")
+        logger.info("WhisperKit model unloaded")
     }
 }

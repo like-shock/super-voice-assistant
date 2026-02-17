@@ -1,4 +1,9 @@
 import Foundation
+import Logging
+import SharedModels
+import SharedModels
+
+private let logger = AppLogger.make("ScreenRecorder")
 
 class ScreenRecorder {
     private var recordingProcess: Process?
@@ -66,7 +71,7 @@ class ScreenRecorder {
 
         // Detect screen device
         guard let videoDeviceIndex = detectMainScreenDeviceIndex() else {
-            print("❌ Could not detect screen capture device")
+            logger.error("Could not detect screen capture device")
             completion(.failure(ScreenRecorderError.noScreenDevice))
             return
         }
@@ -98,8 +103,8 @@ class ScreenRecorder {
             outputPath.path
         ]
 
-        print("🎥 Detected video device: \(videoDevice) (Capture screen 0)")
-        print("🎤 Using audio device: \(audioDevice)")
+        logger.info("Detected video device: \(videoDevice) (Capture screen 0)")
+        logger.info("Using audio device: \(audioDevice)")
 
         // Redirect stdin to /dev/null since we use SIGINT to stop
         process.standardInput = FileHandle.nullDevice
@@ -114,10 +119,10 @@ class ScreenRecorder {
             try process.run()
             self.isRecording = true
             completion(.success(outputPath))
-            print("🎥 Screen recording started: \(filename)")
+            logger.info("Screen recording started: \(filename)")
         } catch {
             completion(.failure(error))
-            print("❌ Failed to start screen recording: \(error)")
+            logger.error("Failed to start screen recording: \(error)")
         }
     }
 
@@ -131,7 +136,7 @@ class ScreenRecorder {
 
         // Use SIGINT to gracefully stop ffmpeg (equivalent to Ctrl+C)
         // This is more reliable than sending 'q' via stdin pipe
-        print("📝 Sending SIGINT to ffmpeg")
+        logger.info("Sending SIGINT to ffmpeg")
         process.interrupt()
 
         // Wait for process to finish (with timeout)
@@ -141,7 +146,7 @@ class ScreenRecorder {
 
             while process.isRunning {
                 if Date().timeIntervalSince(startTime) > maxWaitTime {
-                    print("⚠️  Recording stop timed out - terminating forcefully")
+                    logger.warning(" Recording stop timed out - terminating forcefully")
                     process.terminate()
                     break
                 }
@@ -158,10 +163,10 @@ class ScreenRecorder {
                 let fileSize = (try? FileManager.default.attributesOfItem(atPath: outputURL.path)[.size] as? Int) ?? 0
 
                 if fileExists && fileSize > 0 {
-                    print("✅ Screen recording saved: \(outputURL.lastPathComponent) (\(fileSize) bytes)")
+                    logger.info("Screen recording saved: \(outputURL.lastPathComponent) (\(fileSize) bytes)")
                     completion(.success(outputURL))
                 } else {
-                    print("❌ Screen recording failed - file not created or empty (exit code: \(process.terminationStatus))")
+                    logger.error("Screen recording failed - file not created or empty (exit code: \(process.terminationStatus))")
                     completion(.failure(ScreenRecorderError.recordingFailed(exitCode: process.terminationStatus)))
                 }
             }

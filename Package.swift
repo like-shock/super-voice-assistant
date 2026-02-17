@@ -60,7 +60,9 @@ let package = Package(
         .package(url: "https://github.com/argmaxinc/WhisperKit", from: "0.13.0"),
         .package(url: "https://github.com/FluidInference/FluidAudio.git", from: "0.7.9"),
         .package(url: "https://github.com/microsoft/onnxruntime-swift-package-manager.git", from: "1.16.0"),
-        .package(url: "https://github.com/daltoniam/Starscream", from: "4.0.0")
+        .package(url: "https://github.com/daltoniam/Starscream", from: "4.0.0"),
+        .package(url: "https://github.com/apple/swift-log.git", from: "1.5.0"),
+        .package(url: "https://github.com/sushichop/Puppy.git", from: "0.7.0")
     ],
     targets: [
         .target(
@@ -69,12 +71,14 @@ let package = Package(
                 "WhisperKit",
                 "FluidAudio",
                 .product(name: "onnxruntime", package: "onnxruntime-swift-package-manager"),
-                "Starscream"
+                "Starscream",
+                .product(name: "Logging", package: "swift-log"),
+                "Puppy"
             ],
             path: "SharedSources"),
         .executableTarget(
             name: "SuperVoiceAssistant",
-            dependencies: ["KeyboardShortcuts", "WhisperKit", "SharedModels", "FluidAudio"],
+            dependencies: ["KeyboardShortcuts", "WhisperKit", "SharedModels", "FluidAudio", .product(name: "Logging", package: "swift-log")],
             path: "Sources",
             resources: [
                 .copy("Assets.xcassets"),

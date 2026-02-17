@@ -1,5 +1,8 @@
 import Foundation
 import AVFoundation
+import Logging
+
+private let logger = AppLogger.make("GeminiPlayer")
 
 @available(macOS 14.0, *)
 public class GeminiStreamingPlayer {
@@ -47,9 +50,9 @@ public class GeminiStreamingPlayer {
         
         do {
             try audioEngine.outputNode.auAudioUnit.setDeviceID(deviceID)
-            print("✅ Set output device to: \(device.name)")
+            logger.info("Set output device to: \(device.name)")
         } catch {
-            print("❌ Failed to set output device: \(error)")
+            logger.error("Failed to set output device: \(error)")
         }
     }
     
@@ -63,7 +66,7 @@ public class GeminiStreamingPlayer {
     }
     
     public func stopAudioEngine() {
-        print("🛑 Stopping audio engine and player")
+        logger.info("Stopping audio engine and player")
         playerNode.stop()
         playerNode.reset()  // Clear any scheduled buffers to free memory
         if audioEngine.isRunning {
@@ -82,13 +85,13 @@ public class GeminiStreamingPlayer {
                 // Check for cancellation
                 try Task.checkCancellation()
                 
-                print("🎵 Playing chunk: \(audioChunk.count) bytes")
+                logger.info("Playing chunk: \(audioChunk.count) bytes")
                 
                 // Convert raw PCM data to AVAudioPCMBuffer
                 let buffer = try createPCMBuffer(from: audioChunk)
                 
                 if isFirstChunk {
-                    print("▶️ Starting playback with first chunk")
+                    logger.info("Starting playback with first chunk")
                     playerNode.play()
                     isFirstChunk = false
                 }
@@ -97,17 +100,17 @@ public class GeminiStreamingPlayer {
                 await playerNode.scheduleBuffer(buffer)
                 totalBytesPlayed += audioChunk.count
                 
-                print("📊 Total audio scheduled: \(totalBytesPlayed) bytes")
+                logger.info("Total audio scheduled: \(totalBytesPlayed) bytes")
                 
                 // Small delay to prevent overwhelming the audio system
                 try await Task.sleep(nanoseconds: 1_000_000) // 1ms
             }
             
-            print("✅ All audio chunks scheduled for playback")
+            logger.info("All audio chunks scheduled for playback")
 
             // Wait for playback to complete
             let totalDurationSeconds = Double(totalBytesPlayed) / Double(audioFormat.sampleRate * 2) // 16-bit = 2 bytes per sample
-            print("⏱️ Waiting \(String(format: "%.1f", totalDurationSeconds))s for playback completion")
+            logger.info("Waiting \(String(format: "%.1f", totalDurationSeconds))s for playback completion")
             try await Task.sleep(nanoseconds: UInt64(totalDurationSeconds * 1_000_000_000))
 
             // Clean up after playback
@@ -132,11 +135,11 @@ public class GeminiStreamingPlayer {
 
         // Split text into sentences and rejoin with line breaks for natural pauses
         let sentences = SmartSentenceSplitter.splitIntoSentences(text)
-        print("📖 Split text into \(sentences.count) sentences")
+        logger.info("Split text into \(sentences.count) sentences")
 
         // Join sentences with triple line breaks to encourage model to add longer pauses
         let formattedText = sentences.joined(separator: "\n\n\n")
-        print("📝 Formatted text with line breaks between sentences")
+        logger.info("Formatted text with line breaks between sentences")
 
         var lastError: Error?
 
@@ -153,7 +156,7 @@ public class GeminiStreamingPlayer {
                     (error as? GeminiAudioCollectorError) != nil
 
                 if isNetworkError && attempt < maxRetries {
-                    print("⚠️ TTS attempt \(attempt) failed, retrying in 1s... Error: \(error.localizedDescription)")
+                    logger.warning("TTS attempt \(attempt) failed, retrying in 1s... Error: \(error.localizedDescription)")
                     try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second delay
                     reset() // Reset player state before retry
                 } else {
@@ -176,9 +179,9 @@ public class GeminiStreamingPlayer {
         let audioStream = audioCollector.collectAudioChunks(from: formattedText) { result in
             switch result {
             case .success:
-                print("✅ Audio collection complete")
+                logger.info("Audio collection complete")
             case .failure(let error):
-                print("❌ Audio collection failed: \(error)")
+                logger.error("Audio collection failed: \(error)")
             }
         }
 
@@ -189,7 +192,7 @@ public class GeminiStreamingPlayer {
             let buffer = try createPCMBuffer(from: chunk)
 
             if isFirstChunk {
-                print("▶️ Starting playback")
+                logger.info("Starting playback")
                 playerNode.play()
                 isFirstChunk = false
             }
@@ -201,8 +204,8 @@ public class GeminiStreamingPlayer {
             try await Task.sleep(nanoseconds: 1_000_000) // 1ms between chunks
         }
 
-        print("✅ Playback complete: \(totalBytesPlayed) bytes")
-        print("🎉 Full text streaming completed")
+        logger.info("Playback complete: \(totalBytesPlayed) bytes")
+        logger.info("Full text streaming completed")
 
         // Clean up after playback
         reset()

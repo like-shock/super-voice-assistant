@@ -1,4 +1,7 @@
 import Foundation
+import Logging
+
+private let logger = AppLogger.make("GeminiCollector")
 
 @available(macOS 14.0, *)
 public class GeminiAudioCollector: TTSAudioProvider {
@@ -108,7 +111,7 @@ public class GeminiAudioCollector: TTSAudioProvider {
                 switch message {
                 case .string(let text):
                     // Log full response for debugging
-                    print("📝 Received text message: \(text)")
+                    logger.info("Received text message: \(text)")
 
                     // Check for error responses
                     if let data = text.data(using: .utf8),
@@ -117,7 +120,7 @@ public class GeminiAudioCollector: TTSAudioProvider {
                             let code = error["code"] as? Int ?? -1
                             let message = error["message"] as? String ?? "Unknown error"
                             let status = error["status"] as? String ?? ""
-                            print("🚨 API Error - Code: \(code), Status: \(status), Message: \(message)")
+                            logger.error("API Error - Code: \(code), Status: \(status), Message: \(message)")
                         }
                     }
 
@@ -133,7 +136,7 @@ public class GeminiAudioCollector: TTSAudioProvider {
                                 let code = error["code"] as? Int ?? -1
                                 let message = error["message"] as? String ?? "Unknown error"
                                 let status = error["status"] as? String ?? ""
-                                print("🚨 API Error - Code: \(code), Status: \(status), Message: \(message)")
+                                logger.error("API Error - Code: \(code), Status: \(status), Message: \(message)")
                             }
 
                             // Check for completion in JSON response
@@ -155,21 +158,21 @@ public class GeminiAudioCollector: TTSAudioProvider {
                                        let base64Data = inlineData["data"] as? String,
                                        let actualAudioData = Data(base64Encoded: base64Data) {
 
-                                        print("🎵 Yielding audio chunk: \(actualAudioData.count) bytes")
+                                        logger.info("Yielding audio chunk: \(actualAudioData.count) bytes")
                                         continuation.yield(actualAudioData)
                                     }
                                 }
                             }
                         }
                     } catch {
-                        print("⚠️ JSON parsing error: \(error)")
+                        logger.warning("JSON parsing error: \(error)")
                     }
                 @unknown default:
                     break
                 }
             }
             
-            print("✅ Audio collection complete")
+            logger.info("Audio collection complete")
             // Notify successful completion before finishing the stream
             onComplete?(.success(()))
             continuation.finish()

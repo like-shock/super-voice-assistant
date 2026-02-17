@@ -1,5 +1,8 @@
 import Foundation
 import WhisperKit
+import Logging
+
+private let logger = AppLogger.make("WhisperModel")
 
 /// Shared manager for tracking WhisperKit model download status and metadata
 public class WhisperModelManager {
@@ -60,13 +63,13 @@ public class WhisperModelManager {
             try fileManager.createDirectory(at: newPath.deletingLastPathComponent(), withIntermediateDirectories: true)
             // Move entire directory
             try fileManager.moveItem(at: legacyPath, to: newPath)
-            print("✅ Migrated WhisperKit models from Documents to Application Support")
+            logger.info("Migrated WhisperKit models from Documents to Application Support")
             
             // Clean up empty parent directories
             let huggingfacePath = legacyPath.deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
             try? fileManager.removeItem(at: huggingfacePath)
         } catch {
-            print("⚠️ Migration failed, will use new path for future downloads: \(error)")
+            logger.warning("Migration failed, will use new path for future downloads: \(error)")
         }
     }
     
@@ -100,7 +103,7 @@ public class WhisperModelManager {
         // Save metadata
         if let data = try? JSONEncoder().encode(metadata) {
             try? data.write(to: metadataPath)
-            print("✅ Marked \(modelName) as downloaded")
+            logger.info("Marked \(modelName) as downloaded")
         }
     }
     
@@ -209,7 +212,7 @@ public class WhisperModelManager {
             
             // If model exists but not marked as complete, it's potentially incomplete
             if modelExistsOnDisk(modelName) && !isModelDownloaded(modelName) {
-                print("⚠️  Found potentially incomplete download: \(modelName)")
+                logger.warning(" Found potentially incomplete download: \(modelName)")
                 // Optionally remove it:
                 // try? fileManager.removeItem(at: modelDir)
             }

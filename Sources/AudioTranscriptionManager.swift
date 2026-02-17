@@ -4,6 +4,9 @@ import WhisperKit
 import AppKit
 import SharedModels
 import CoreAudio
+import Logging
+
+private let logger = AppLogger.make("AudioTranscription")
 
 protocol AudioTranscriptionManagerDelegate: AnyObject {
     func audioLevelDidUpdate(db: Float)
@@ -70,24 +73,24 @@ class AudioTranscriptionManager {
 
             if status == noErr {
                 let deviceName = deviceManager.availableInputDevices.first { $0.uid == selectedUID }?.name ?? selectedUID
-                print("✅ Set system default input to: \(deviceName)")
+                logger.info("Set system default input to: \(deviceName)")
             } else {
-                print("⚠️ Failed to set default input device (error: \(status))")
+                logger.warning("Failed to set default input device (error: \(status))")
             }
         } else {
-            print("✅ Using system default input device")
+            logger.info("Using system default input device")
         }
 
         let format = inputNode.outputFormat(forBus: 0)
-        print("   Format: \(format.sampleRate)Hz, \(format.channelCount) channels")
+        logger.debug("   Format: \(format.sampleRate)Hz, \(format.channelCount) channels")
     }
     
     private func requestMicrophonePermission() {
         AVCaptureDevice.requestAccess(for: .audio) { granted in
             if granted {
-                print("Microphone permission granted")
+                logger.info("Microphone permission granted")
             } else {
-                print("Microphone permission denied")
+                logger.info("Microphone permission denied")
                 DispatchQueue.main.async {
                     self.showPermissionAlert()
                 }
@@ -132,7 +135,7 @@ class AudioTranscriptionManager {
         escapeKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if event.keyCode == 53 { // 53 is the key code for Escape
                 if self?.isRecording == true {
-                    print("🛑 Recording cancelled by Escape key")
+                    logger.info("Recording cancelled by Escape key")
                     DispatchQueue.main.async {
                         self?.cancelRecording()
                     }
@@ -164,7 +167,7 @@ class AudioTranscriptionManager {
 
                 // Prevent memory explosion from runaway recording
                 if self.audioBuffer.count > self.maxBufferSamples {
-                    print("⚠️ Audio buffer limit reached (5 min). Auto-stopping recording.")
+                    logger.warning("Audio buffer limit reached (5 min). Auto-stopping recording.")
                     DispatchQueue.main.async {
                         self.isRecording = false
                         self.stopRecording()
@@ -191,10 +194,10 @@ class AudioTranscriptionManager {
 
         do {
             try audioEngine.start()
-            print("🎤 Recording started...")
+            logger.info("Recording started...")
             isStartingRecording = false
         } catch {
-            print("Failed to start audio engine: \(error)")
+            logger.info("Failed to start audio engine: \(error)")
             isRecording = false
             isStartingRecording = false
         }
@@ -210,8 +213,8 @@ class AudioTranscriptionManager {
             escapeKeyMonitor = nil
         }
         
-        print("⏹ Recording stopped")
-        print("Captured \(audioBuffer.count) audio samples")
+        logger.info("Recording stopped")
+        logger.debug("Captured \(audioBuffer.count) audio samples")
         
         // Process the recording
         Task {
@@ -231,7 +234,7 @@ class AudioTranscriptionManager {
             escapeKeyMonitor = nil
         }
         
-        print("Recording cancelled")
+        logger.info("Recording cancelled")
         
         delegate?.recordingWasCancelled()
     }
@@ -239,7 +242,7 @@ class AudioTranscriptionManager {
     @MainActor
     private func processRecording() async {
         guard !audioBuffer.isEmpty else {
-            print("No audio recorded")
+            logger.info("No audio recorded")
             // Nothing to transcribe; ensure UI resets
             delegate?.recordingWasSkippedDueToSilence()
             return
@@ -249,7 +252,7 @@ class AudioTranscriptionManager {
         let durationSeconds = Double(audioBuffer.count) / sampleRate
         let minDurationSeconds: Double = 0.30
         if durationSeconds < minDurationSeconds {
-            print("Recording too short (\(String(format: "%.2f", durationSeconds))s). Skipping transcription.")
+            logger.info("Recording too short (\(String(format: "%.2f", durationSeconds))s). Skipping transcription.")
             delegate?.recordingWasSkippedDueToSilence()
             return
         }
@@ -263,7 +266,7 @@ class AudioTranscriptionManager {
         let silenceThreshold: Float = -55.0
 
         if db < silenceThreshold {
-            print("Audio too quiet (RMS: \(rms), dB: \(db)). Skipping transcription.")
+            logger.info("Audio too quiet (RMS: \(rms), dB: \(db)). Skipping transcription.")
             // Reset the status bar icon when skipping quiet audio
             delegate?.recordingWasSkippedDueToSilence()
             return
@@ -293,7 +296,7 @@ class AudioTranscriptionManager {
         }
 
         guard let whisperKit = ModelStateManager.shared.loadedWhisperKit else {
-            print("WhisperKit not initialized - please select and download a model in Settings")
+            logger.info("WhisperKit not initialized - please select and download a model in Settings")
             isTranscribing = false
             delegate?.transcriptionDidFail(error: "No WhisperKit model loaded. Please select a model in Settings.")
             return
@@ -308,10 +311,10 @@ class AudioTranscriptionManager {
         var paddedBuffer = audioBuffer
         if audioBuffer.count < minSamplesForPadding {
             paddedBuffer.append(contentsOf: [Float](repeating: 0.0, count: paddingSamples))
-            print("Padded short audio with \(paddingDurationSeconds)s of silence")
+            logger.info("Padded short audio with \(paddingDurationSeconds)s of silence")
         }
 
-        print("Transcribing \(audioBuffer.count) samples (\(Double(audioBuffer.count) / sampleRate) seconds) with WhisperKit...")
+        logger.info("Transcribing \(audioBuffer.count) samples (\(Double(audioBuffer.count) / sampleRate) seconds) with WhisperKit...")
 
         do {
             let transcriptionResult = try await whisperKit.transcribe(
@@ -341,7 +344,7 @@ class AudioTranscriptionManager {
                 handleTranscriptionResult(transcription)
             }
         } catch {
-            print("WhisperKit transcription error: \(error)")
+            logger.info("WhisperKit transcription error: \(error)")
             isTranscribing = false
             delegate?.transcriptionDidFail(error: "Transcription failed: \(error.localizedDescription)")
         }
@@ -357,7 +360,7 @@ class AudioTranscriptionManager {
 
         guard let transcriber = ModelStateManager.shared.loadedParakeetTranscriber,
               transcriber.isReady else {
-            print("Parakeet not initialized - please select Parakeet in Settings and wait for model to load")
+            logger.info("Parakeet not initialized - please select Parakeet in Settings and wait for model to load")
             isTranscribing = false
             delegate?.transcriptionDidFail(error: "No Parakeet model loaded. Please wait for model to download in Settings.")
             return
@@ -372,17 +375,17 @@ class AudioTranscriptionManager {
         var paddedBuffer = audioBuffer
         if audioBuffer.count < minSamplesForPadding {
             paddedBuffer.append(contentsOf: [Float](repeating: 0.0, count: paddingSamples))
-            print("Padded short audio with \(paddingDurationSeconds)s of silence")
+            logger.info("Padded short audio with \(paddingDurationSeconds)s of silence")
         }
 
-        print("Transcribing \(audioBuffer.count) samples (\(Double(audioBuffer.count) / sampleRate) seconds) with Parakeet...")
+        logger.info("Transcribing \(audioBuffer.count) samples (\(Double(audioBuffer.count) / sampleRate) seconds) with Parakeet...")
 
         do {
             let transcription = try await transcriber.transcribe(audioSamples: paddedBuffer)
             isTranscribing = false
             handleTranscriptionResult(transcription)
         } catch {
-            print("Parakeet transcription error: \(error)")
+            logger.info("Parakeet transcription error: \(error)")
             isTranscribing = false
             delegate?.transcriptionDidFail(error: "Transcription failed: \(error.localizedDescription)")
         }
@@ -395,7 +398,7 @@ class AudioTranscriptionManager {
             // Apply text replacements from config
             transcription = TextReplacements.shared.processText(transcription)
 
-            print("Transcription: \"\(transcription)\"")
+            logger.info("Transcription: \"\(transcription)\"")
 
             // Save to history
             TranscriptionHistory.shared.addEntry(transcription)
@@ -403,7 +406,7 @@ class AudioTranscriptionManager {
             // Notify delegate
             delegate?.transcriptionDidComplete(text: transcription)
         } else {
-            print("No transcription generated (possibly silence)")
+            logger.info("No transcription generated (possibly silence)")
             // Reset UI and avoid leaving the processing indicator running
             delegate?.recordingWasSkippedDueToSilence()
         }

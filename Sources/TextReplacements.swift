@@ -1,4 +1,9 @@
 import Foundation
+import Logging
+import SharedModels
+import SharedModels
+
+private let logger = AppLogger.make("TextReplace")
 
 struct ReplacementsConfig: Codable {
     var textReplacements: [String: String]
@@ -22,16 +27,16 @@ class TextReplacements {
 
     private func loadConfig() {
         guard FileManager.default.fileExists(atPath: configFileURL.path) else {
-            print("No config file found at \(configFileURL.path)")
+            logger.info("No config file found at \(configFileURL.path)")
             return
         }
 
         do {
             let data = try Data(contentsOf: configFileURL)
             config = try JSONDecoder().decode(ReplacementsConfig.self, from: data)
-            print("Loaded \(config.textReplacements.count) text replacements")
+            logger.info("Loaded \(config.textReplacements.count) text replacements")
         } catch {
-            print("Failed to load config: \(error)")
+            logger.info("Failed to load config: \(error)")
         }
     }
 
