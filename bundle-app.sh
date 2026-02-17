@@ -6,10 +6,12 @@ set -e
 cd "$(dirname "$0")"
 
 RUN=false
+OPEN=false
 CONFIG="debug"
 for arg in "$@"; do
     case "$arg" in
         --run) RUN=true ;;
+        --open) OPEN=true ;;
         --release) CONFIG="release" ;;
     esac
 done
@@ -59,6 +61,9 @@ echo "✅ Bundle ready: $APP_DIR"
 
 # 4. Run
 if [ "$RUN" = true ]; then
-    echo "🚀 Launching..."
+    echo "🚀 Running (console log)..."
     exec "$MACOS_DIR/SuperVoiceAssistant"
+elif [ "$OPEN" = true ]; then
+    echo "🚀 Opening app..."
+    open "$APP_DIR"
 fi
