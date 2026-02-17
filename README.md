@@ -71,14 +71,14 @@ You must manually grant accessibility permissions for the app to:
 2. Click the lock icon to make changes (enter your password)
 3. Click the **+** button to add an application
 4. Navigate to the app location:
-   - If running via `swift run`: Add **Terminal** or your terminal app (iTerm2, etc.)
-   - If running the built binary directly: Add the **SuperVoiceAssistant** executable
+   - If running via `./bundle-app.sh --run`: Add **Terminal** or your terminal app (iTerm2, etc.)
+   - If running via `./bundle-app.sh --open`: Add **Super Voice Assistant.app**
 5. Ensure the checkbox next to the app is checked
 
 ### 3. Screen Recording Access (Required for Video Transcription)
 The app requires screen recording permission to capture screen content:
 - Go to **System Settings > Privacy & Security > Screen Recording**
-- Enable access for **Terminal** (if running via `swift run`) or **SuperVoiceAssistant**
+- Enable access for **Terminal** (if running via `--run`) or **Super Voice Assistant** (if running via `--open`)
 
 ## Installation & Running
 
@@ -94,11 +94,14 @@ brew install ffmpeg
 cp .env.example .env
 # Edit .env and add your GEMINI_API_KEY
 
-# Build the app
-swift build
+# Build and run (with console log output)
+./bundle-app.sh --run
 
-# Run the main app
-swift run SuperVoiceAssistant
+# Or build and launch as .app
+./bundle-app.sh --open
+
+# Release build
+./bundle-app.sh --release --run
 ```
 
 The app will appear in your menu bar as a waveform icon.
@@ -190,11 +193,11 @@ This is useful for correcting common speech-to-text misrecognitions, especially 
 ## Available Commands
 
 ```bash
-# Run the main app
-swift run SuperVoiceAssistant
+# Build and run with console log
+./bundle-app.sh --run
 
 # Run with debug logging
-LOG_LEVEL=debug swift run SuperVoiceAssistant
+LOG_LEVEL=debug ./bundle-app.sh --run
 
 # List all available WhisperKit models
 swift run ListModels
@@ -242,6 +245,8 @@ swift run TranscribeVideo <path-to-video-file>
 ```
 Sources/                          # Main app code
 ├── main.swift                    # App entry, keyboard shortcuts, TTS engine management
+Info.plist                            # .app bundle configuration
+bundle-app.sh                         # Build + bundle assembly + codesign script
 ├── ModelStateManager.swift       # STT engine/model selection + lifecycle
 ├── AudioTranscriptionManager.swift  # Audio recording + transcription routing
 ├── GeminiAudioRecordingManager.swift # Gemini cloud recording

@@ -8,15 +8,20 @@ import Combine
 import ApplicationServices
 import Foundation
 import Logging
+import UserNotifications
 private var logger = AppLogger.make("App")
 
 // Environment variable loading
 func loadEnvironmentVariables() {
     let fileManager = FileManager.default
-    let currentDirectory = fileManager.currentDirectoryPath
-    let envPath = "\(currentDirectory)/.env"
     
-    guard fileManager.fileExists(atPath: envPath),
+    // .app 번들 내 Resources/.env → cwd/.env 순서로 탐색
+    let candidatePaths = [
+        Bundle.main.resourcePath.map { "\($0)/.env" },
+        Optional("\(fileManager.currentDirectoryPath)/.env")
+    ].compactMap { $0 }
+    
+    guard let envPath = candidatePaths.first(where: { fileManager.fileExists(atPath: $0) }),
           let envContent = try? String(contentsOfFile: envPath) else {
         return
     }
@@ -34,17 +39,20 @@ func loadEnvironmentVariables() {
     }
 }
 
-// MARK: - Notification Helper (NSUserNotification — works without .app bundle)
+// MARK: - Notification Helper
 
 func sendNotification(title: String, subtitle: String? = nil, body: String, sound: Bool = false) {
-    let notification = NSUserNotification()
-    notification.title = title
-    notification.subtitle = subtitle
-    notification.informativeText = body
-    if sound {
-        notification.soundName = NSUserNotificationDefaultSoundName
-    }
-    NSUserNotificationCenter.default.deliver(notification)
+    let center = UNUserNotificationCenter.current()
+    center.requestAuthorization(options: [.alert, .sound]) { _, _ in }
+    
+    let content = UNMutableNotificationContent()
+    content.title = title
+    if let subtitle = subtitle { content.subtitle = subtitle }
+    content.body = body
+    if sound { content.sound = .default }
+    
+    let request = UNNotificationRequest(identifier: UUID().uuidString, content: content, trigger: nil)
+    center.add(request)
 }
 
 extension KeyboardShortcuts.Name {
@@ -918,7 +926,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
 let app = NSApplication.shared
 let delegate = AppDelegate()
 app.delegate = delegate
-app.setActivationPolicy(.regular) // Show in dock and cmd+tab
+app.setActivationPolicy(.accessory) // Menu bar only, no dock icon
 
 // Set the app icon from our custom ICNS file
 if let iconURL = Bundle.module.url(forResource: "AppIcon", withExtension: "icns"),

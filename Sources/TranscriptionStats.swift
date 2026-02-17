@@ -10,8 +10,8 @@ class TranscriptionStats {
     private var totalTranscriptions: Int = 0
     
     private var statsFileURL: URL {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let appSupportDir = documentsPath.appendingPathComponent("SuperVoiceAssistant", isDirectory: true)
+        let appSupportBase = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupportDir = appSupportBase.appendingPathComponent("SuperVoiceAssistant", isDirectory: true)
         
         // Create directory if it doesn't exist
         try? FileManager.default.createDirectory(at: appSupportDir, withIntermediateDirectories: true)
@@ -20,7 +20,22 @@ class TranscriptionStats {
     }
     
     private init() {
+        migrateFromDocuments()
         loadStats()
+    }
+    
+    private func migrateFromDocuments() {
+        let fm = FileManager.default
+        let oldFile = fm.urls(for: .documentDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("SuperVoiceAssistant")
+            .appendingPathComponent("transcription_stats.json")
+        guard fm.fileExists(atPath: oldFile.path), !fm.fileExists(atPath: statsFileURL.path) else { return }
+        do {
+            try fm.moveItem(at: oldFile, to: statsFileURL)
+            logger.info("Migrated stats from Documents to Application Support")
+        } catch {
+            logger.warning("Stats migration failed: \(error)")
+        }
     }
     
     private func loadStats() {
