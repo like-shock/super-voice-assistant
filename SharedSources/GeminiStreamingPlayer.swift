@@ -11,7 +11,7 @@ public class GeminiStreamingPlayer {
     private let timePitchEffect = AVAudioUnitTimePitch()
     private let audioFormat: AVAudioFormat
     
-    /// 현재 오디오 포맷의 샘플레이트
+    /// Sample rate of the current audio format
     public var currentSampleRate: Double { audioFormat.sampleRate }
     
     public init(sampleRate: Double = 24000, playbackSpeed: Float = 1.2) {
@@ -122,10 +122,10 @@ public class GeminiStreamingPlayer {
         }
     }
     
-    /// TTSAudioProvider 기반 재생 (Gemini, Supertonic 등 모든 엔진 공용)
+    /// TTSAudioProvider-based playback (shared by all engines: Gemini, Supertonic, etc.)
     public func playText(_ text: String, provider: TTSAudioProvider) async throws {
-        // 샘플레이트가 다르면 리샘플링이 필요하지만,
-        // 현재는 엔진 초기화 시 올바른 샘플레이트로 생성한다고 가정
+        // Resampling would be needed if sample rates differ,
+        // but currently assumes correct sample rate is set at engine init
         let audioStream = provider.collectAudioChunks(from: text)
         try await playAudioStream(audioStream)
     }

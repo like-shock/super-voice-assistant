@@ -221,7 +221,7 @@ class ModelStateManager: ObservableObject {
         modelLoadingStates[modelName] = state
     }
     
-    /// WhisperKit 로딩 완료 후 상태 업데이트 (Task.detached에서 호출용)
+    /// Update state after WhisperKit loading completes (called from Task.detached)
     func setLoadedWhisperKit(_ whisperKit: WhisperKit, for modelName: String) {
         loadedWhisperKit = whisperKit
         setLoadingState(for: modelName, state: .loaded)

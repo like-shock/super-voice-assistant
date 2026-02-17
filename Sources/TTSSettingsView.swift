@@ -115,7 +115,7 @@ struct TTSSettingsSection: View {
                             .font(.caption)
                             .foregroundColor(.secondary)
                         Picker("", selection: $lang) {
-                            Text("한국어").tag("ko")
+                            Text("Korean").tag("ko")
                             Text("English").tag("en")
                             Text("Español").tag("es")
                             Text("Português").tag("pt")
@@ -163,11 +163,11 @@ struct TTSSettingsSection: View {
     @AppStorage("edgeTTSRate") private var edgeRate: Int = 0  // -50 ~ +100 percent
     
     private static let edgeVoicePresets: [(name: String, id: String)] = [
-        ("선히 (여성)", "ko-KR-SunHiNeural"),
-        ("인준 (남성)", "ko-KR-InJoonNeural"),
-        ("현수 (남성/다국어)", "ko-KR-HyunsuMultilingualNeural"),
-        ("Ava (여성/다국어)", "en-US-AvaMultilingualNeural"),
-        ("Emma (여성/다국어)", "en-US-EmmaMultilingualNeural"),
+        ("SunHi (Female)", "ko-KR-SunHiNeural"),
+        ("InJoon (Male)", "ko-KR-InJoonNeural"),
+        ("Hyunsu (Male/Multilingual)", "ko-KR-HyunsuMultilingualNeural"),
+        ("Ava (Female/Multilingual)", "en-US-AvaMultilingualNeural"),
+        ("Emma (Female/Multilingual)", "en-US-EmmaMultilingualNeural"),
         ("Jenny (EN-F)", "en-US-JennyNeural"),
         ("Aria (EN-F)", "en-US-AriaNeural"),
         ("Guy (EN-M)", "en-US-GuyNeural"),
@@ -367,7 +367,7 @@ struct TTSSettingsSection: View {
         }
     }
     
-    /// 현재 설정으로 짧은 샘플 재생
+    /// Play a short sample with current settings
     private func previewVoice() {
         guard let appDelegate = NSApplication.shared.delegate as? AppDelegate,
               let engine = appDelegate.supertonicEngine,

@@ -155,8 +155,8 @@ public struct SmartSentenceSplitter {
         return combinedSentences
     }
     
-    /// 줄 단위로 먼저 쪼개고, 긴 줄은 문장 단위로 추가 분할
-    /// 단락 경계 마커 — mergeShortChunks에서 병합 차단용
+    /// Split by lines first, then further split long lines by sentences
+    /// Paragraph boundary marker — blocks merging in mergeShortChunks
     public static let paragraphBreak = "\u{FEFF}__PARA__"
     
     public static func splitByLines(_ text: String, maxCharsPerChunk: Int = 40) -> [String] {
@@ -171,7 +171,7 @@ public struct SmartSentenceSplitter {
                 prevWasEmpty = true
                 continue
             }
-            // 빈 줄 뒤의 첫 텍스트 → 단락 경계 삽입
+            // First text after blank line → insert paragraph boundary
             if prevWasEmpty && !result.isEmpty {
                 result.append(paragraphBreak)
             }
@@ -180,7 +180,7 @@ public struct SmartSentenceSplitter {
             if line.count <= maxCharsPerChunk {
                 result.append(line)
             } else {
-                // 긴 줄은 문장 단위로 추가 분할
+                // Further split long lines by sentences
                 let sentences = splitIntoSentences(line, minWordsPerSentence: 0)
                 result.append(contentsOf: sentences)
             }
@@ -189,10 +189,10 @@ public struct SmartSentenceSplitter {
         return result.isEmpty ? [text] : result
     }
     
-    /// 헤딩/제목 패턴 감지 — 병합 차단 대상
+    /// Detect heading/title patterns — blocked from merging
     private static func isHeading(_ text: String) -> Bool {
         let trimmed = text.trimmingCharacters(in: .whitespaces)
-        // "A.", "E.", "1.", "10." 등 번호+마침표로 시작
+        // Starts with number/letter + period: "A.", "E.", "1.", "10." etc.
         if let first = trimmed.first {
             if first.isLetter && trimmed.count >= 2 && trimmed.dropFirst().first == "." {
                 return true
@@ -204,15 +204,15 @@ public struct SmartSentenceSplitter {
                 }
             }
         }
-        // "#", "##" 마크다운 헤딩
+        // "#", "##" markdown headings
         if trimmed.hasPrefix("#") { return true }
-        // "- ", "• " 리스트 아이템
+        // "- ", "• " list items
         if trimmed.hasPrefix("- ") || trimmed.hasPrefix("• ") { return true }
         return false
     }
     
-    /// 짧은 청크를 병합하여 WebSocket 왕복 횟수 최소화
-    /// - 단락 경계(빈 줄)와 헤딩 패턴에서는 병합하지 않음
+    /// Merge short chunks to minimize WebSocket round-trips
+    /// - Does not merge across paragraph boundaries (blank lines) or heading patterns
     public static func mergeShortChunks(
         _ chunks: [String],
         minChars: Int = 20,
@@ -227,7 +227,7 @@ public struct SmartSentenceSplitter {
         let sentenceEndings: Set<Character> = [".", "!", "?", "。", "！", "？"]
         
         for chunk in chunks {
-            // 단락 경계 → 버퍼 flush, 병합 차단
+            // Paragraph boundary → flush buffer, block merging
             if chunk == paragraphBreak {
                 if !buffer.isEmpty {
                     result.append(buffer)
@@ -236,13 +236,13 @@ public struct SmartSentenceSplitter {
                 continue
             }
             
-            // 헤딩 패턴 → 버퍼 flush 후 헤딩을 새 버퍼로
+            // Heading pattern → flush buffer, then start new buffer with heading
             if isHeading(chunk) {
                 if !buffer.isEmpty {
                     result.append(buffer)
                 }
                 buffer = chunk
-                // 헤딩 다음 줄과도 합치지 않도록 바로 flush
+                // Flush immediately so next line won't merge with heading
                 result.append(buffer)
                 buffer = ""
                 continue
@@ -251,7 +251,7 @@ public struct SmartSentenceSplitter {
             if buffer.isEmpty {
                 buffer = chunk
             } else if (buffer.count + separator.count + chunk.count) <= maxChars {
-                // 병합 시 이전 버퍼 끝에 문장부호 없으면 마침표 추가 (TTS 끊어읽기용)
+                // Add period if previous buffer doesn't end with punctuation (for TTS pause)
                 if let last = buffer.last, !sentenceEndings.contains(last) {
                     buffer += "."
                 }
@@ -262,7 +262,7 @@ public struct SmartSentenceSplitter {
             }
         }
         
-        // 마지막 버퍼: 너무 짧으면 이전 청크에 붙임 (단, 이전이 헤딩이 아닐 때)
+        // Last buffer: if too short, append to previous chunk (unless previous is a heading)
         if !buffer.isEmpty {
             if buffer.count < minChars, !result.isEmpty, !isHeading(result.last!) {
                 if let last = result.last?.last, !sentenceEndings.contains(last) {

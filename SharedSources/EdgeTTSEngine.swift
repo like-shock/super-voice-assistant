@@ -4,9 +4,9 @@ import Foundation
 import Logging
 import Starscream
 
-/// Edge TTS 스트리밍 엔진 — Microsoft Edge의 무료 TTS WebSocket API
-/// Starscream WebSocket으로 커스텀 헤더 완전 제어
-/// API 키 불필요, 400+ 신경망 음성, raw PCM 24kHz 스트리밍
+/// Edge TTS streaming engine — free TTS via Microsoft Edge WebSocket API
+/// Full custom header control via Starscream WebSocket
+/// No API key required, 400+ neural voices, raw PCM 24kHz streaming
 @available(macOS 14.0, *)
 public class EdgeTTSEngine: TTSAudioProvider {
     public let sampleRate: Double = 24000
@@ -130,7 +130,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
         "EdgeTTSEngine(voice=\(voiceName), rate=\(rate), pitch=\(pitch))"
     }
     
-    /// 문장 단위로 분할 → 짧은 줄 병합 → prefetch 1개(최대 소켓 2개) → mp3 직접 재생
+    /// Split by sentences → merge short lines → prefetch 1 (max 2 sockets) → play mp3 directly
     public func playText(_ text: String) async throws {
         let rawChunks = SmartSentenceSplitter.splitByLines(text)
         let sentences = SmartSentenceSplitter.mergeShortChunks(rawChunks, minChars: 20, maxChars: 80)
@@ -141,7 +141,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
         
         guard !sentences.isEmpty else { return }
         
-        // 첫 문장 합성 시작
+        // Start synthesizing first sentence
         var nextTask: Task<Data, Error> = Task {
             try await self.synthesizeToMP3(sentences[0])
         }
@@ -149,10 +149,10 @@ public class EdgeTTSEngine: TTSAudioProvider {
         for (index, _) in sentences.enumerated() {
             try Task.checkCancellation()
             
-            // 현재 문장 mp3 수거 (이미 합성 중이거나 완료)
+            // Collect current sentence mp3 (already synthesizing or done)
             let mp3Data = try await nextTask.value
             
-            // 다음 문장 prefetch 시작 (재생과 병렬, 최대 소켓 2개)
+            // Start prefetching next sentence (parallel with playback, max 2 sockets)
             if index + 1 < sentences.count {
                 let nextSentence = sentences[index + 1]
                 nextTask = Task { try await self.synthesizeToMP3(nextSentence) }
@@ -164,7 +164,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
         }
     }
     
-    /// 단일 텍스트 → mp3 Data (WebSocket 1회)
+    /// Single text → mp3 Data (one WebSocket round-trip)
     private func synthesizeToMP3(_ text: String) async throws -> Data {
         var mp3Data = Data()
         let stream = collectAudioChunks(from: text)
@@ -192,7 +192,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
         }
     }
     
-    /// 사용 가능한 음성 목록 가져오기
+    /// Fetch available voice list
     public static func fetchVoices() async throws -> [Voice] {
         let token = generateSecMsGecToken()
         let muid = generateMUID()
@@ -214,7 +214,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
         return try JSONDecoder().decode([Voice].self, from: data)
     }
     
-    /// 특정 언어의 음성 목록
+    /// Fetch voices for a specific locale
     public static func fetchVoices(locale: String) async throws -> [Voice] {
         let all = try await fetchVoices()
         return all.filter { $0.locale.hasPrefix(locale) }
@@ -247,7 +247,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
     
     // MARK: - MP3 Direct Playback (macOS native)
     
-    /// mp3 Data를 AVAudioPlayer로 직접 재생 (PCM 변환 불필요)
+    /// Play mp3 Data directly via AVAudioPlayer (no PCM conversion needed)
     public func playMP3Data(_ mp3Data: Data) async throws {
         let player = try AVAudioPlayer(data: mp3Data)
         self.activePlayer = player  // retain to prevent ARC deallocation
@@ -263,7 +263,7 @@ public class EdgeTTSEngine: TTSAudioProvider {
         }
     }
     
-    /// 재생 즉시 중지
+    /// Stop playback immediately
     public func stopPlayback() {
         activePlayer?.stop()
         activePlayer = nil
@@ -412,9 +412,9 @@ public extension EdgeTTSEngine {
         
         public var displayName: String {
             switch self {
-            case .sunHi: return "선히 (여성)"
-            case .inJoon: return "인준 (남성)"
-            case .hyunsu: return "현수 (남성/다국어)"
+            case .sunHi: return "SunHi (Female)"
+            case .inJoon: return "InJoon (Male)"
+            case .hyunsu: return "Hyunsu (Male/Multilingual)"
             }
         }
     }

@@ -96,8 +96,8 @@ public enum ParakeetLoadingState: Equatable {
 /// Wrapper for FluidAudio Parakeet transcription
 public class ParakeetTranscriber {
 
-    /// FluidAudio 기본 모델 경로 (~/Library/Application Support/FluidAudio/Models/)
-    /// FluidAudio SDK가 내부적으로 이 경로를 사용하며, 모델 다운로드도 여기에 저장됨
+    /// Default FluidAudio model path (~/Library/Application Support/FluidAudio/Models/)
+    /// FluidAudio SDK uses this path internally and stores downloaded models here
     public static func modelsDirectory() -> URL {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         return appSupport

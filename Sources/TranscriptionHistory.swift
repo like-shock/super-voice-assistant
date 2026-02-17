@@ -37,7 +37,7 @@ class TranscriptionHistory {
         loadHistory()
     }
     
-    /// ~/Documents/SuperVoiceAssistant/ → ~/Library/Application Support/SuperVoiceAssistant/ 마이그레이션
+    /// Migrate from ~/Documents/SuperVoiceAssistant/ to ~/Library/Application Support/SuperVoiceAssistant/
     private func migrateFromDocuments() {
         let fm = FileManager.default
         let oldDir = fm.urls(for: .documentDirectory, in: .userDomainMask).first!

@@ -178,7 +178,7 @@ struct SettingsView: View {
     
     private var langDisplayName: String {
         switch supertonicLang {
-        case "ko": return "한국어"
+        case "ko": return "Korean"
         case "en": return "English"
         case "es": return "Español"
         case "pt": return "Português"

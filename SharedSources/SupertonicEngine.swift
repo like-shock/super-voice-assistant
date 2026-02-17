@@ -2,8 +2,8 @@ import Foundation
 import Logging
 import OnnxRuntimeBindings
 
-/// Swift 네이티브 Supertonic TTS 엔진
-/// ONNX Runtime으로 인-프로세스 추론, Python 의존성 없음
+/// Swift-native Supertonic TTS engine
+/// In-process inference via ONNX Runtime, no Python dependency
 @available(macOS 14.0, *)
 public class SupertonicEngine: TTSAudioProvider {
     public var sampleRate: Double { Double(tts?.sampleRate ?? 44100) }
@@ -20,25 +20,25 @@ public class SupertonicEngine: TTSAudioProvider {
     
     private let modelDir: String
     
-    /// 동시 합성 요청 직렬화
+    /// Serialize concurrent synthesis requests
     private let synthesisLock = SupertonicSynthesisLock()
     
     public private(set) var isLoaded: Bool = false
     
-    /// 레거시 경로 (~/.cache/supertonic2)에서 앱 내부 경로로 마이그레이션
+    /// Migrate from legacy path (~/.cache/supertonic2) to app-internal path
     private static func migrateIfNeeded(to newPath: String) {
         let fm = FileManager.default
         let home = fm.homeDirectoryForCurrentUser.path
         let legacyPath = "\(home)/.cache/supertonic2"
         
-        // 새 경로에 이미 모델이 있으면 스킵
+        // Skip if model already exists at new path
         guard !fm.fileExists(atPath: "\(newPath)/onnx/tts.json") else { return }
-        // 레거시 경로에 모델이 없으면 스킵
+        // Skip if no model at legacy path
         guard fm.fileExists(atPath: "\(legacyPath)/onnx/tts.json") else { return }
         
         do {
             try fm.createDirectory(atPath: newPath, withIntermediateDirectories: true)
-            // onnx/ 와 voice_styles/ 복사
+            // Copy onnx/ and voice_styles/
             for subdir in ["onnx", "voice_styles"] {
                 let src = "\(legacyPath)/\(subdir)"
                 let dst = "\(newPath)/\(subdir)"
@@ -52,7 +52,7 @@ public class SupertonicEngine: TTSAudioProvider {
         }
     }
     
-    /// 기본 모델 경로 (Application Support)
+    /// Default model path (Application Support)
     public static func defaultModelDir() -> String {
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
         return appSupport
@@ -85,14 +85,14 @@ public class SupertonicEngine: TTSAudioProvider {
     
     // MARK: - Lifecycle
     
-    /// 모델 로딩 (1회, 이후 재사용)
+    /// Load model (once, reused afterwards)
     public func load() throws {
         guard !isLoaded else { return }
         
         let onnxDir = "\(modelDir)/onnx"
         let voiceStylePath = "\(modelDir)/voice_styles/\(voiceName).json"
         
-        // 모델 파일 존재 확인
+        // Check model files exist
         guard FileManager.default.fileExists(atPath: "\(onnxDir)/tts.json") else {
             throw SupertonicEngineError.modelNotFound(
                 "Model not found at \(onnxDir). Run 'pip install supertonic && supertonic info' to download models, or clone from HuggingFace."
@@ -116,7 +116,7 @@ public class SupertonicEngine: TTSAudioProvider {
         isLoaded = true
     }
     
-    /// 리소스 해제
+    /// Release resources
     public func unload() {
         tts = nil
         style = nil
@@ -127,12 +127,12 @@ public class SupertonicEngine: TTSAudioProvider {
     
     // MARK: - TTSAudioProvider
     
-    /// 텍스트를 PCM 오디오 청크 스트림으로 변환 (문장 단위)
+    /// Convert text to a stream of PCM audio chunks (sentence by sentence)
     public func collectAudioChunks(from text: String) -> AsyncThrowingStream<Data, Error> {
         AsyncThrowingStream { continuation in
             Task {
                 do {
-                    // 자동 로드
+                    // Auto-load
                     if !self.isLoaded {
                         try self.load()
                     }
@@ -154,7 +154,7 @@ public class SupertonicEngine: TTSAudioProvider {
                             continuation.yield(pcmData)
                         }
                         
-                        // 문장 간 무음 (0.25초)
+                        // Silence between sentences (0.25s)
                         if index < sentences.count - 1 {
                             let silenceSamples = Int(self.sampleRate * 0.25)
                             let silenceData = Data(count: silenceSamples * 2)  // 16-bit = 2 bytes/sample
@@ -172,7 +172,7 @@ public class SupertonicEngine: TTSAudioProvider {
     
     // MARK: - Synthesis
     
-    /// 단일 텍스트 합성 → raw PCM Data (16-bit, 44100Hz, mono)
+    /// Single text synthesis → raw PCM Data (16-bit, 44100Hz, mono)
     public func synthesize(_ text: String) async throws -> Data {
         return try await synthesisLock.run {
             try self._synthesize(text)
@@ -186,13 +186,13 @@ public class SupertonicEngine: TTSAudioProvider {
         
         let startTime = Date()
         
-        // TextToSpeech.call()로 합성 (자동 chunking 포함)
+        // Synthesize via TextToSpeech.call() (includes auto-chunking)
         let result = try tts.call(text, lang, style, totalSteps, speed: speed, silenceDuration: 0.3)
         
         let elapsed = Date().timeIntervalSince(startTime)
         logger.info("Synthesized \(text.prefix(30))... → \(String(format: "%.2f", result.duration))s audio in \(String(format: "%.3f", elapsed))s")
         
-        // Float → 16-bit PCM 변환
+        // Float → 16-bit PCM conversion
         let actualLen = Int(Float(tts.sampleRate) * result.duration)
         let wavSlice = Array(result.wav.prefix(actualLen))
         
@@ -208,7 +208,7 @@ public class SupertonicEngine: TTSAudioProvider {
     
     // MARK: - Configuration
     
-    /// 음성 스타일 변경
+    /// Change voice style
     public func setVoice(_ name: String) throws {
         let voiceStylePath = "\(modelDir)/voice_styles/\(name).json"
         guard FileManager.default.fileExists(atPath: voiceStylePath) else {
@@ -220,24 +220,24 @@ public class SupertonicEngine: TTSAudioProvider {
         logger.info("Voice changed to \(name)")
     }
     
-    /// 언어 변경
+    /// Change language
     public func setLang(_ newLang: String) {
         lang = newLang
         logger.info("Language changed to \(newLang)")
     }
     
-    /// 속도 변경
+    /// Change speed
     public func setSpeed(_ newSpeed: Float) {
         speed = newSpeed
         logger.info("Speed changed to \(newSpeed)")
     }
     
-    /// 현재 설정 정보
+    /// Current configuration info
     public var info: String {
         "SupertonicEngine(voice=\(voiceName), lang=\(lang), speed=\(speed), loaded=\(isLoaded), sampleRate=\(sampleRate))"
     }
     
-    /// 사용 가능한 음성 목록
+    /// Available voice list
     public var availableVoices: [String] {
         let voiceDir = "\(modelDir)/voice_styles"
         guard let files = try? FileManager.default.contentsOfDirectory(atPath: voiceDir) else { return [] }

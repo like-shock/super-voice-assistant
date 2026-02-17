@@ -15,7 +15,7 @@ private var logger = AppLogger.make("App")
 func loadEnvironmentVariables() {
     let fileManager = FileManager.default
     
-    // .app 번들 내 Resources/.env → cwd/.env 순서로 탐색
+    // Search .env in bundle Resources first, then cwd
     let candidatePaths = [
         Bundle.main.resourcePath.map { "\($0)/.env" },
         Optional("\(fileManager.currentDirectoryPath)/.env")
@@ -89,10 +89,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     private var videoTranscriber = VideoTranscriber()
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Load environment variables (.env 파일의 LOG_LEVEL 등)
+        // Load environment variables (LOG_LEVEL etc. from .env file)
         loadEnvironmentVariables()
         
-        // .env 로딩 후 로그 레벨 재적용
+        // Reapply log level after .env loading
         logger.logLevel = AppLogger.resolveLogLevel()
         
         // Migrate WhisperKit models from legacy ~/Documents path
@@ -296,7 +296,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     
     // MARK: - TTS Engine Helpers
     
-    /// 현재 활성 TTS 프로바이더
+    /// Currently active TTS provider
     @available(macOS 14.0, *)
     var currentTTSProvider: TTSAudioProvider? {
         switch currentTTSEngine {
@@ -309,7 +309,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         }
     }
     
-    /// Supertonic 네이티브 엔진 초기화
+    /// Initialize Supertonic native engine
     func initSupertonic() {
         let voice = UserDefaults.standard.string(forKey: "supertonicVoice") ?? "M1"
         let lang = UserDefaults.standard.string(forKey: "supertonicLang") ?? "ko"
@@ -317,9 +317,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         let actualSpeed = speed > 0 ? Float(speed) : Float(1.05)
         
         supertonicEngine = SupertonicEngine(voiceName: voice, lang: lang, speed: actualSpeed)
-        streamingPlayer = GeminiStreamingPlayer(sampleRate: 44100, playbackSpeed: 1.0)  // Supertonic은 자체 속도 제어
+        streamingPlayer = GeminiStreamingPlayer(sampleRate: 44100, playbackSpeed: 1.0)  // Supertonic handles its own speed control
         
-        // ONNX Runtime 모델 로딩을 백그라운드에서 수행 (메인 스레드 블로킹 방지)
+        // Load ONNX Runtime model in background (avoid blocking main thread)
         Task.detached(priority: .userInitiated) { [weak self] in
             do {
                 try self?.supertonicEngine?.load()
@@ -330,7 +330,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         }
     }
     
-    /// Edge TTS 엔진 초기화
+    /// Initialize Edge TTS engine
     func initEdgeTTS() {
         let voice = UserDefaults.standard.string(forKey: "edgeTTSVoice") ?? "ko-KR-SunHiNeural"
         let rateInt = UserDefaults.standard.integer(forKey: "edgeTTSRate")  // defaults to 0
@@ -343,11 +343,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         }
     }
     
-    /// TTS 엔진 전환
+    /// Switch TTS engine
     func switchTTSEngine(to engine: TTSEngine) {
         guard engine != currentTTSEngine else { return }
         
-        // 기존 엔진 정리
+        // Clean up existing engine
         switch currentTTSEngine {
         case .gemini:
             if #available(macOS 14.0, *) {
@@ -363,7 +363,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         currentTTSEngine = engine
         UserDefaults.standard.set(engine.rawValue, forKey: "ttsEngine")
         
-        // 새 엔진 초기화
+        // Initialize new engine
         if #available(macOS 14.0, *) {
             switch engine {
             case .gemini:

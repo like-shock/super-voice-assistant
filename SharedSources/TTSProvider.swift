@@ -1,13 +1,13 @@
 import Foundation
 
-/// TTS 엔진 공통 인터페이스
+/// Common TTS engine interface
 @available(macOS 14.0, *)
 public protocol TTSAudioProvider {
-    /// 텍스트를 PCM 오디오 청크 스트림으로 변환
+    /// Convert text to a stream of PCM audio chunks
     /// - Returns: AsyncThrowingStream of raw PCM Data (16-bit, mono)
     func collectAudioChunks(from text: String) -> AsyncThrowingStream<Data, Error>
     
-    /// 오디오 샘플레이트
+    /// Audio sample rate
     var sampleRate: Double { get }
 }
 
