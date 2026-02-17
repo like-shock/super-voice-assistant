@@ -135,6 +135,19 @@ swift run TestTTSEngines edge "테스트 문장"
 swift run TestTTSEngines supertonic "테스트 문장"
 ```
 
+### Structured Logging
+
+**Status**: ✅ Complete — swift-log + Puppy backend
+**Key Files**:
+- `SharedSources/AppLogger.swift` — `AppLogger.make("Category")` factory, Puppy console backend
+
+**Architecture**:
+- All `print()` replaced with categorized `Logger` instances via `AppLogger.make("Category")`
+- Categories: App, Settings, ModelState, AudioTranscription, GeminiRecording, GeminiPlayer, GeminiCollector, EdgeTTS, EdgeTTS.WS, Supertonic, Parakeet, WhisperDownload, WhisperModel, ScreenRecorder, History, Stats, TextReplace, TTSSettings
+- Log level controlled via `LOG_LEVEL` env var (trace/debug/info/warning/error, default: info)
+- Format: `HH:mm:ss.SSS [LEVEL] [Category] message`
+- Dependencies: `apple/swift-log`, `sushichop/Puppy`
+
 ### Codesign Setup (for ANE Cache)
 
 CoreML ANE specialization cache keys depend on codesign identity. Ad-hoc signed SPM binaries get different cache keys per build → ANE re-specialization (~5min) every time.

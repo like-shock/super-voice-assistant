@@ -193,6 +193,9 @@ This is useful for correcting common speech-to-text misrecognitions, especially 
 # Run the main app
 swift run SuperVoiceAssistant
 
+# Run with debug logging
+LOG_LEVEL=debug swift run SuperVoiceAssistant
+
 # List all available WhisperKit models
 swift run ListModels
 
@@ -249,6 +252,7 @@ Sources/                          # Main app code
 └── ...
 
 SharedSources/                    # Shared components (no AppKit dependency)
+├── AppLogger.swift               # Structured logging (swift-log + Puppy)
 ├── TTSProvider.swift             # TTSAudioProvider protocol + TTSEngine enum
 ├── SupertonicEngine.swift        # Supertonic local TTS (ONNX Runtime)
 ├── SupertonicCore.swift          # Supertonic ONNX inference core
