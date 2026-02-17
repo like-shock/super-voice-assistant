@@ -3,6 +3,9 @@ import AVFoundation
 import AppKit
 import SharedModels
 import CoreAudio
+import Logging
+
+private let logger = AppLogger.make("GeminiRecording")
 
 protocol GeminiAudioRecordingManagerDelegate: AnyObject {
     func audioLevelDidUpdate(db: Float)
@@ -69,24 +72,24 @@ class GeminiAudioRecordingManager {
 
             if status == noErr {
                 let deviceName = deviceManager.availableInputDevices.first { $0.uid == selectedUID }?.name ?? selectedUID
-                print("✅ Set system default input to: \(deviceName)")
+                logger.info("Set system default input to: \(deviceName)")
             } else {
-                print("⚠️ Failed to set default input device (error: \(status))")
+                logger.warning("Failed to set default input device (error: \(status))")
             }
         } else {
-            print("✅ Using system default input device")
+            logger.info("Using system default input device")
         }
 
         let format = inputNode.outputFormat(forBus: 0)
-        print("   Format: \(format.sampleRate)Hz, \(format.channelCount) channels")
+        logger.debug("   Format: \(format.sampleRate)Hz, \(format.channelCount) channels")
     }
 
     private func requestMicrophonePermission() {
         AVCaptureDevice.requestAccess(for: .audio) { granted in
             if granted {
-                print("Microphone permission granted")
+                logger.info("Microphone permission granted")
             } else {
-                print("Microphone permission denied")
+                logger.info("Microphone permission denied")
                 DispatchQueue.main.async {
                     self.showPermissionAlert()
                 }
@@ -131,7 +134,7 @@ class GeminiAudioRecordingManager {
         escapeKeyMonitor = NSEvent.addGlobalMonitorForEvents(matching: .keyDown) { [weak self] event in
             if event.keyCode == 53 { // 53 is the key code for Escape
                 if self?.isRecording == true {
-                    print("🛑 Gemini recording cancelled by Escape key")
+                    logger.info("Gemini recording cancelled by Escape key")
                     DispatchQueue.main.async {
                         self?.cancelRecording()
                     }
@@ -163,7 +166,7 @@ class GeminiAudioRecordingManager {
 
                 // Prevent memory explosion from runaway recording
                 if self.audioBuffer.count > self.maxBufferSamples {
-                    print("⚠️ Audio buffer limit reached (5 min). Auto-stopping recording.")
+                    logger.warning("Audio buffer limit reached (5 min). Auto-stopping recording.")
                     DispatchQueue.main.async {
                         self.isRecording = false
                         self.stopRecording()
@@ -191,10 +194,10 @@ class GeminiAudioRecordingManager {
         do {
             audioEngine.prepare()
             try audioEngine.start()
-            print("🎤 Gemini audio recording started...")
+            logger.info("Gemini audio recording started...")
             isStartingRecording = false
         } catch {
-            print("Failed to start audio engine: \(error)")
+            logger.info("Failed to start audio engine: \(error)")
             isRecording = false
             isStartingRecording = false
         }
@@ -210,8 +213,8 @@ class GeminiAudioRecordingManager {
             escapeKeyMonitor = nil
         }
 
-        print("⏹ Gemini recording stopped")
-        print("Captured \(audioBuffer.count) audio samples")
+        logger.info("Gemini recording stopped")
+        logger.debug("Captured \(audioBuffer.count) audio samples")
 
         // Process the recording
         processRecording()
@@ -229,14 +232,14 @@ class GeminiAudioRecordingManager {
             escapeKeyMonitor = nil
         }
 
-        print("Gemini recording cancelled")
+        logger.info("Gemini recording cancelled")
 
         delegate?.recordingWasCancelled()
     }
 
     private func processRecording() {
         guard !audioBuffer.isEmpty else {
-            print("No audio recorded")
+            logger.info("No audio recorded")
             delegate?.recordingWasSkippedDueToSilence()
             return
         }
@@ -245,7 +248,7 @@ class GeminiAudioRecordingManager {
         let durationSeconds = Double(audioBuffer.count) / sampleRate
         let minDurationSeconds: Double = 0.30
         if durationSeconds < minDurationSeconds {
-            print("Recording too short (\(String(format: "%.2f", durationSeconds))s). Skipping transcription.")
+            logger.info("Recording too short (\(String(format: "%.2f", durationSeconds))s). Skipping transcription.")
             delegate?.recordingWasSkippedDueToSilence()
             return
         }
@@ -258,7 +261,7 @@ class GeminiAudioRecordingManager {
         let silenceThreshold: Float = -55.0
 
         if db < silenceThreshold {
-            print("Audio too quiet (RMS: \(rms), dB: \(db)). Skipping transcription.")
+            logger.info("Audio too quiet (RMS: \(rms), dB: \(db)). Skipping transcription.")
             delegate?.recordingWasSkippedDueToSilence()
             return
         }
@@ -266,7 +269,7 @@ class GeminiAudioRecordingManager {
         // Start transcription
         delegate?.transcriptionDidStart()
 
-        print("Sending audio to Gemini API for transcription (\(Double(audioBuffer.count) / sampleRate) seconds)...")
+        logger.info("Sending audio to Gemini API for transcription (\(Double(audioBuffer.count) / sampleRate) seconds)...")
 
         // Send to Gemini API
         geminiTranscriber.transcribe(audioBuffer: audioBuffer) { [weak self] result in
@@ -278,7 +281,7 @@ class GeminiAudioRecordingManager {
                         // Apply text replacements from config
                         trimmed = TextReplacements.shared.processText(trimmed)
 
-                        print("✅ Gemini transcription: \"\(trimmed)\"")
+                        logger.info("Gemini transcription: \"\(trimmed)\"")
 
                         // Save to history
                         TranscriptionHistory.shared.addEntry(trimmed)
@@ -286,12 +289,12 @@ class GeminiAudioRecordingManager {
                         // Notify delegate
                         self?.delegate?.transcriptionDidComplete(text: trimmed)
                     } else {
-                        print("No transcription generated (possibly silence)")
+                        logger.info("No transcription generated (possibly silence)")
                         self?.delegate?.recordingWasSkippedDueToSilence()
                     }
 
                 case .failure(let error):
-                    print("Gemini transcription error: \(error.localizedDescription)")
+                    logger.info("Gemini transcription error: \(error.localizedDescription)")
                     self?.delegate?.transcriptionDidFail(error: "Gemini transcription failed: \(error.localizedDescription)")
                 }
             }

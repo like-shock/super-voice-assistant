@@ -78,7 +78,7 @@ let package = Package(
             path: "SharedSources"),
         .executableTarget(
             name: "SuperVoiceAssistant",
-            dependencies: ["KeyboardShortcuts", "WhisperKit", "SharedModels", "FluidAudio"],
+            dependencies: ["KeyboardShortcuts", "WhisperKit", "SharedModels", "FluidAudio", .product(name: "Logging", package: "swift-log")],
             path: "Sources",
             resources: [
                 .copy("Assets.xcassets"),

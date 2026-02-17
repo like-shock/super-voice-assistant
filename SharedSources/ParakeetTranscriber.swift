@@ -1,5 +1,8 @@
 import Foundation
 import FluidAudio
+import Logging
+
+private let logger = AppLogger.make("Parakeet")
 
 /// Available Parakeet model versions
 public enum ParakeetVersion: String, CaseIterable {
@@ -129,7 +132,7 @@ public class ParakeetTranscriber {
     /// - Parameter version: The version of the model to load
     public func loadModel(version: ParakeetVersion) async throws {
         loadingState = .downloading
-        print("Loading Parakeet model: \(version.displayName)")
+        logger.info("Loading Parakeet model: \(version.displayName)")
 
         do {
             // Create an AsrManager instance
@@ -156,12 +159,12 @@ public class ParakeetTranscriber {
             asrManager = manager
             loadedVersion = version
             loadingState = .loaded
-            print("Parakeet model loaded successfully: \(version.displayName)")
+            logger.info("Parakeet model loaded successfully: \(version.displayName)")
 
         } catch {
             loadingState = .notDownloaded
             loadedVersion = nil
-            print("Failed to load Parakeet model: \(error)")
+            logger.info("Failed to load Parakeet model: \(error)")
             throw TranscriptionError.loadingFailed(error.localizedDescription)
         }
     }
@@ -175,10 +178,10 @@ public class ParakeetTranscriber {
         }
 
         do {
-            print("Transcribing \(audioSamples.count) samples with Parakeet...")
+            logger.info("Transcribing \(audioSamples.count) samples with Parakeet...")
             let result = try await manager.transcribe(audioSamples)
             let text = result.text
-            print("Parakeet transcription complete: \(text)")
+            logger.info("Parakeet transcription complete: \(text)")
             return text
         } catch {
             throw TranscriptionError.transcriptionFailed(error.localizedDescription)
@@ -195,6 +198,6 @@ public class ParakeetTranscriber {
         asrManager = nil
         loadedVersion = nil
         loadingState = .notDownloaded
-        print("Parakeet model unloaded")
+        logger.info("Parakeet model unloaded")
     }
 }

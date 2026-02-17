@@ -1,5 +1,8 @@
 import SwiftUI
 import SharedModels
+import Logging
+
+private let logger = AppLogger.make("TTSSettings")
 
 // MARK: - TTS Settings Section
 
@@ -279,7 +282,7 @@ struct TTSSettingsSection: View {
                 try await engine.playText(sampleText)
             } catch is CancellationError {
             } catch {
-                print("⚠️ Edge TTS preview failed: \(error)")
+                logger.warning("Edge TTS preview failed: \(error)")
             }
         }
     }
@@ -391,7 +394,7 @@ struct TTSSettingsSection: View {
                 } catch is CancellationError {
                     // Cancelled, ignore
                 } catch {
-                    print("⚠️ Voice preview failed: \(error)")
+                    logger.warning("Voice preview failed: \(error)")
                 }
             }
         }

@@ -7,6 +7,9 @@ import SharedModels
 import Combine
 import ApplicationServices
 import Foundation
+import Logging
+private let logger = AppLogger.make("App")
+
 // Environment variable loading
 func loadEnvironmentVariables() {
     let fileManager = FileManager.default
@@ -95,9 +98,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                 if let apiKey = ProcessInfo.processInfo.environment["GEMINI_API_KEY"], !apiKey.isEmpty {
                     streamingPlayer = GeminiStreamingPlayer(sampleRate: 24000, playbackSpeed: 1.15)
                     audioCollector = GeminiAudioCollector(apiKey: apiKey)
-                    print("✅ Gemini TTS initialized")
+                    logger.info("Gemini TTS initialized")
                 } else {
-                    print("⚠️ GEMINI_API_KEY not found, falling back to Supertonic")
+                    logger.warning("GEMINI_API_KEY not found, falling back to Supertonic")
                     currentTTSEngine = .supertonic
                     initSupertonic()
                 }
@@ -107,7 +110,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                 initEdgeTTS()
             }
         } else {
-            print("⚠️ Streaming TTS requires macOS 14.0 or later")
+            logger.warning("Streaming TTS requires macOS 14.0 or later")
         }
         
         // Create the status bar item
@@ -149,14 +152,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
             // Prevent starting audio recording if screen recording is active
             if self.screenRecorder.recording {
                 sendNotification(title: "Cannot Start Audio Recording", body: "Screen recording is currently active. Stop it first with Cmd+Option+C")
-                print("⚠️ Blocked audio recording - screen recording is active")
+                logger.warning("Blocked audio recording - screen recording is active")
                 return
             }
 
             // Prevent starting audio recording if Gemini audio recording is active
             if self.geminiAudioManager.isRecording {
                 sendNotification(title: "Cannot Start Audio Recording", body: "Gemini audio recording is currently active. Stop it first with Cmd+Option+X")
-                print("⚠️ Blocked audio recording - Gemini audio recording is active")
+                logger.warning("Blocked audio recording - Gemini audio recording is active")
                 return
             }
 
@@ -182,14 +185,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
             // Prevent starting Gemini audio recording if screen recording is active
             if self.screenRecorder.recording {
                 sendNotification(title: "Cannot Start Gemini Audio Recording", body: "Screen recording is currently active. Stop it first with Cmd+Option+C")
-                print("⚠️ Blocked Gemini audio recording - screen recording is active")
+                logger.warning("Blocked Gemini audio recording - screen recording is active")
                 return
             }
 
             // Prevent starting Gemini audio recording if WhisperKit recording is active
             if self.audioManager.isRecording {
                 sendNotification(title: "Cannot Start Gemini Audio Recording", body: "WhisperKit recording is currently active. Stop it first with Cmd+Option+Z")
-                print("⚠️ Blocked Gemini audio recording - WhisperKit recording is active")
+                logger.warning("Blocked Gemini audio recording - WhisperKit recording is active")
                 return
             }
 
@@ -220,7 +223,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         // Check downloaded models at startup (off MainActor to prevent CoreML deadlock)
         Task.detached(priority: .userInitiated) {
             await ModelStateManager.shared.checkDownloadedModels()
-            print("Model check completed at startup")
+            logger.info("Model check completed at startup")
 
             // Load the initially selected model based on engine
             let engine = await ModelStateManager.shared.selectedEngine
@@ -309,9 +312,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         Task.detached(priority: .userInitiated) { [weak self] in
             do {
                 try self?.supertonicEngine?.load()
-                print("✅ Supertonic native TTS initialized")
+                logger.info("Supertonic native TTS initialized")
             } catch {
-                print("❌ Supertonic init failed: \(error)")
+                logger.error("Supertonic init failed: \(error)")
             }
         }
     }
@@ -325,7 +328,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         if #available(macOS 14.0, *) {
             edgeTTSEngine = EdgeTTSEngine(voiceName: voice, rate: rate)
             streamingPlayer = GeminiStreamingPlayer(sampleRate: 24000, playbackSpeed: 1.0)
-            print("✅ Edge TTS initialized (voice: \(voice))")
+            logger.info("Edge TTS initialized (voice: \(voice))")
         }
     }
     
@@ -356,7 +359,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                 if let apiKey = ProcessInfo.processInfo.environment["GEMINI_API_KEY"], !apiKey.isEmpty {
                     streamingPlayer = GeminiStreamingPlayer(sampleRate: 24000, playbackSpeed: 1.15)
                     audioCollector = GeminiAudioCollector(apiKey: apiKey)
-                    print("✅ Switched to Gemini TTS")
+                    logger.info("Switched to Gemini TTS")
                 }
             case .supertonic:
                 initSupertonic()
@@ -388,14 +391,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         // Prevent starting screen recording if audio recording is active
         if !screenRecorder.recording && audioManager.isRecording {
             sendNotification(title: "Cannot Start Screen Recording", body: "Audio recording is currently active. Stop it first with Cmd+Option+Z")
-            print("⚠️ Blocked screen recording - audio recording is active")
+            logger.warning("Blocked screen recording - audio recording is active")
             return
         }
 
         // Prevent starting screen recording if Gemini audio recording is active
         if !screenRecorder.recording && geminiAudioManager.isRecording {
             sendNotification(title: "Cannot Start Screen Recording", body: "Gemini audio recording is currently active. Stop it first with Cmd+Option+X")
-            print("⚠️ Blocked screen recording - Gemini audio recording is active")
+            logger.warning("Blocked screen recording - Gemini audio recording is active")
             return
         }
 
@@ -412,7 +415,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                     self.startVideoProcessingIndicator()
 
                     // Transcribe the video
-                    print("🎬 Starting transcription for: \(videoURL.lastPathComponent)")
+                    logger.info("Starting transcription for: \(videoURL.lastPathComponent)")
                     self.videoTranscriber.transcribe(videoURL: videoURL) { result in
                         DispatchQueue.main.async {
                             self.stopVideoProcessingIndicator()
@@ -432,31 +435,31 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                                 if let videoURL = self.currentVideoURL {
                                     do {
                                         try FileManager.default.removeItem(at: videoURL)
-                                        print("🗑️ Deleted video file: \(videoURL.lastPathComponent)")
+                                        logger.info("Deleted video file: \(videoURL.lastPathComponent)")
                                     } catch {
-                                        print("⚠️ Failed to delete video file: \(error.localizedDescription)")
+                                        logger.warning("Failed to delete video file: \(error.localizedDescription)")
                                     }
                                 }
 
                                 // Show completion notification with transcription
                                 sendNotification(title: "Video Transcribed", subtitle: "Pasted at cursor", body: transcription.prefix(100) + (transcription.count > 100 ? "..." : ""))
 
-                                print("✅ Transcription complete:")
-                                print("─────────────────")
-                                print(transcription)
-                                print("─────────────────")
+                                logger.info("Transcription complete:")
+                                // (separator line removed)
+                                logger.info("\(transcription)")
+                                // (separator line removed)
 
                             case .failure(let error):
                                 // Show error notification
                                 sendNotification(title: "Transcription Failed", body: error.localizedDescription)
 
-                                print("❌ Transcription failed: \(error.localizedDescription)")
+                                logger.error("Transcription failed: \(error.localizedDescription)")
                             }
                         }
                     }
 
                 case .failure(let error):
-                    print("❌ Screen recording failed: \(error.localizedDescription)")
+                    logger.error("Screen recording failed: \(error.localizedDescription)")
 
                     sendNotification(title: "Recording Failed", body: error.localizedDescription)
 
@@ -470,7 +473,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
 
             // Show stopping notification
             sendNotification(title: "Screen Recording Stopped", body: "Saving video...")
-            print("⏹️ Screen recording STOPPED")
+            logger.info("Screen recording STOPPED")
 
         } else {
             // Start recording
@@ -489,10 +492,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
 
                     // Show success notification
                     sendNotification(title: "Screen Recording Started", body: "Press Cmd+Option+C again to stop")
-                    print("🎥 Screen recording STARTED")
+                    logger.info("Screen recording STARTED")
 
                 case .failure(let error):
-                    print("❌ Failed to start recording: \(error.localizedDescription)")
+                    logger.error("Failed to start recording: \(error.localizedDescription)")
 
                     sendNotification(title: "Recording Failed", body: error.localizedDescription)
                 }
@@ -504,7 +507,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         // Get the most recent transcription from history
         guard let lastEntry = TranscriptionHistory.shared.getEntries().first else {
             sendNotification(title: "No Transcription Available", body: "No transcription history found")
-            print("⚠️ No transcription history to paste")
+            logger.warning("No transcription history to paste")
             return
         }
 
@@ -512,7 +515,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         pasteTextAtCursor(lastEntry.text)
 
         sendNotification(title: "Pasted Last Transcription", body: lastEntry.text.prefix(100) + (lastEntry.text.count > 100 ? "..." : ""))
-        print("📋 Pasted last transcription: \(lastEntry.text.prefix(50))...")
+        logger.info("Pasted last transcription: \(lastEntry.text.prefix(50))...")
     }
 
     func applicationWillTerminate(_ notification: Notification) {
@@ -520,7 +523,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     }
     
     func stopCurrentPlayback() {
-        print("🛑 Stopping audio playback")
+        logger.info("Stopping audio playback")
         
         // Cancel the current streaming task
         currentStreamingTask?.cancel()
@@ -548,7 +551,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
             }
         }
         
-        print("📋 Saved \(savedItems.count) clipboard types before reading selection")
+        logger.info("Saved \(savedItems.count) clipboard types before reading selection")
         
         // Simulate Cmd+C to copy selected text
         let source = CGEventSource(stateID: .hidSystemState)
@@ -569,7 +572,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
             let copiedText = pasteboard.string(forType: .string) ?? ""
             
             if !copiedText.isEmpty {
-                print("📖 Selected text for streaming TTS: \(copiedText)")
+                logger.info("Selected text for streaming TTS: \(copiedText)")
                 
                 // Try to stream speech with current TTS provider
                 if #available(macOS 14.0, *),
@@ -597,12 +600,12 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                             sendNotification(title: "Streaming TTS Complete", body: "Finished streaming selected text")
                             
                         } catch is CancellationError {
-                            print("🛑 Audio streaming was cancelled")
+                            logger.info("Audio streaming was cancelled")
                         } catch where Task.isCancelled || "\(error)".contains("CancellationError") {
                             // CancellationError wrapped in another error (e.g. playbackError)
-                            print("🛑 Audio streaming was cancelled (wrapped)")
+                            logger.info("Audio streaming was cancelled (wrapped)")
                         } catch {
-                            print("❌ Streaming TTS Error: \(error)")
+                            logger.error("Streaming TTS Error: \(error)")
                             
                             sendNotification(title: "Streaming TTS Error", body: "Failed to stream text: \(error.localizedDescription)")
                             
@@ -624,7 +627,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                             for (type, data) in items {
                                 pb.setData(data, forType: type)
                             }
-                            print("♻️ Restored original clipboard contents")
+                            logger.info("Restored original clipboard contents")
                         }
                     }
                 } else {
@@ -633,7 +636,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                     // Don't restore clipboard in this case since user might want the copied text
                 }
             } else {
-                print("⚠️ No text was copied - nothing selected or copy failed")
+                logger.warning("No text was copied - nothing selected or copy failed")
                 
                 sendNotification(title: "No Text Selected", body: "Please select some text first before using TTS")
                 
@@ -642,7 +645,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                 for (type, data) in savedItems {
                     pasteboard.setData(data, forType: type)
                 }
-                print("♻️ Restored clipboard after failed copy")
+                logger.info("Restored clipboard after failed copy")
             }
         }
     }
@@ -786,7 +789,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
             }
         }
         
-        print("📋 Saved \(savedItems.count) clipboard types")
+        logger.info("Saved \(savedItems.count) clipboard types")
         
         // Set our text to clipboard
         pasteboard.clearContents()
@@ -805,7 +808,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
             keyUp.post(tap: .cghidEventTap)
         }
         
-        print("✅ Paste command sent")
+        logger.info("Paste command sent")
         
         // After a short delay, check if paste might have failed
         // and show history window for easy manual copying
@@ -815,7 +818,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
             let appName = frontmostApp?.localizedName ?? "Unknown"
             let bundleId = frontmostApp?.bundleIdentifier ?? ""
             
-            print("📱 Attempted paste in: \(appName) (\(bundleId))")
+            logger.info("Attempted paste in: \(appName) (\(bundleId))")
             
             // Apps where paste typically fails or doesn't make sense
             let problematicApps = [
@@ -827,7 +830,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
             // Check if the app is known to not accept pastes well
             // OR if the user is in an unusual context
             if problematicApps.contains(bundleId) {
-                print("⚠️ Detected potential paste failure - showing history window")
+                logger.warning("Detected potential paste failure - showing history window")
                 self?.showHistoryForPasteFailure()
             }
             
@@ -836,7 +839,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
             for (type, data) in savedItems {
                 pasteboard.setData(data, forType: type)
             }
-            print("♻️ Restored clipboard")
+            logger.info("Restored clipboard")
         }
     }
     
@@ -856,7 +859,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
             keyUp.post(tap: .cghidEventTap)
         }
         
-        print("📚 Showing history window for paste failure recovery")
+        logger.info("Showing history window for paste failure recovery")
     }
     
     // MARK: - AudioTranscriptionManagerDelegate

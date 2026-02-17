@@ -1,26 +1,29 @@
 import Foundation
 import WhisperKit
 import SharedModels
+import Logging
+
+private let logger = AppLogger.make("WhisperDownload")
 
 /// WhisperKit model downloader supporting all three models
 class WhisperModelDownloader {
     
     /// Download any WhisperKit model by name with progress callback
     static func downloadModel(modelName: String, progressCallback: ((Progress) -> Void)? = nil) async throws -> URL {
-        print("Starting download of \(modelName)...")
+        logger.info("Starting download of \(modelName)...")
         
         let modelManager = WhisperModelManager.shared
         let modelPath = modelManager.getModelPath(for: modelName)
         
         // Check if model is already marked as downloaded
         if modelManager.isModelDownloaded(modelName) {
-            print("Model already downloaded and verified: \(modelName)")
+            logger.info("Model already downloaded and verified: \(modelName)")
             return modelPath
         }
         
         // Check if model exists but not marked as complete (incomplete download)
         if modelManager.modelExistsOnDisk(modelName) && !modelManager.isModelDownloaded(modelName) {
-            print("Found incomplete download, removing and re-downloading...")
+            logger.info("Found incomplete download, removing and re-downloading...")
             try? FileManager.default.removeItem(at: modelPath)
         }
         
@@ -31,7 +34,7 @@ class WhisperModelDownloader {
             progressCallback: progressCallback
         )
         
-        print("Model downloaded to: \(downloadedFolder)")
+        logger.info("Model downloaded to: \(downloadedFolder)")
         
         // Move to our app-managed path if different
         let modelFolder: URL
@@ -41,16 +44,16 @@ class WhisperModelDownloader {
                 try FileManager.default.removeItem(at: modelPath)
             }
             try FileManager.default.moveItem(at: downloadedFolder, to: modelPath)
-            print("Moved model to: \(modelPath)")
+            logger.info("Moved model to: \(modelPath)")
             modelFolder = modelPath
         } else {
             modelFolder = downloadedFolder
         }
         
-        print("Model ready at: \(modelFolder)")
+        logger.info("Model ready at: \(modelFolder)")
         
         // Validate the model by trying to load it
-        print("Validating model...")
+        logger.info("Validating model...")
         do {
             let _ = try await WhisperKit(
                 modelFolder: modelFolder.path,
@@ -61,9 +64,9 @@ class WhisperModelDownloader {
             
             // If loading succeeds, mark as complete
             modelManager.markModelAsDownloaded(modelName)
-            print("Model validated and marked as complete: \(modelName)")
+            logger.info("Model validated and marked as complete: \(modelName)")
         } catch {
-            print("Warning: Model validation failed but download completed: \(error)")
+            logger.info("Warning: Model validation failed but download completed: \(error)")
             // Still mark as downloaded since the download itself completed
             // The model state manager will handle validation separately
             modelManager.markModelAsDownloaded(modelName)

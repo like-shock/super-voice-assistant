@@ -1,4 +1,9 @@
 import Foundation
+import Logging
+import SharedModels
+import SharedModels
+
+private let logger = AppLogger.make("Stats")
 
 class TranscriptionStats {
     static let shared = TranscriptionStats()
@@ -20,7 +25,7 @@ class TranscriptionStats {
     
     private func loadStats() {
         guard FileManager.default.fileExists(atPath: statsFileURL.path) else {
-            print("No stats file found, starting fresh")
+            logger.info("No stats file found, starting fresh")
             return
         }
         
@@ -29,10 +34,10 @@ class TranscriptionStats {
             if let stats = try JSONSerialization.jsonObject(with: data) as? [String: Any],
                let count = stats["totalTranscriptions"] as? Int {
                 totalTranscriptions = count
-                print("Loaded stats: \(totalTranscriptions) total transcriptions")
+                logger.info("Loaded stats: \(totalTranscriptions) total transcriptions")
             }
         } catch {
-            print("Failed to load stats: \(error)")
+            logger.info("Failed to load stats: \(error)")
         }
     }
     
@@ -42,14 +47,14 @@ class TranscriptionStats {
             let data = try JSONSerialization.data(withJSONObject: stats, options: .prettyPrinted)
             try data.write(to: statsFileURL)
         } catch {
-            print("Failed to save stats: \(error)")
+            logger.info("Failed to save stats: \(error)")
         }
     }
     
     func incrementTranscriptionCount() {
         totalTranscriptions += 1
         saveStats()
-        print("Total transcriptions: \(totalTranscriptions)")
+        logger.info("Total transcriptions: \(totalTranscriptions)")
     }
     
     func getTotalTranscriptions() -> Int {
