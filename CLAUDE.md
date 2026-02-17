@@ -6,7 +6,7 @@
 
 ## Background Process Management
 
-- When developing and testing changes, run the app in background using: `swift build && swift run SuperVoiceAssistant` with `run_in_background: true`
+- When developing and testing changes, run the app using: `./bundle-app.sh --run`
 - Keep the app running in background while the user tests functionality
 - Only kill and restart the background instance when making code changes that require a fresh build
 - Allow the user to continue using the running instance between agent sessions
@@ -89,9 +89,8 @@ Auto-migration from legacy paths on first launch:
 - Period auto-inserted between merged chunks for natural TTS pauses
 
 **Notification API**:
-- Uses deprecated `NSUserNotification` (not `UNUserNotificationCenter`)
-- Reason: bare binary from `swift build` has no `.app` bundle → `UNUserNotificationCenter.current()` crashes with `bundleProxyForCurrentProcess is nil`
-- See `docs/migrate-to-UNUserNotification.md` for future migration plan
+- Uses `UNUserNotificationCenter` (requires `.app` bundle with `Info.plist`)
+- `bundle-app.sh` assembles `.app` bundle from SPM build output
 
 **Features**:
 - ✅ Cmd+Opt+S keyboard shortcut for reading selected text aloud
@@ -148,16 +147,18 @@ swift run TestTTSEngines supertonic "테스트 문장"
 - Format: `HH:mm:ss.SSS [LEVEL] [Category] message`
 - Dependencies: `apple/swift-log`, `sushichop/Puppy`
 
-### Codesign Setup (for ANE Cache)
+### .app Bundle Build
 
-CoreML ANE specialization cache keys depend on codesign identity. Ad-hoc signed SPM binaries get different cache keys per build → ANE re-specialization (~5min) every time.
+SPM build + `.app` bundle assembly via script. Ad-hoc codesign — `.app` bundle uses `CFBundleIdentifier` from `Info.plist` for stable ANE cache identity (no self-signed cert needed).
 
-**Solution**: Self-signed certificate "SuperVoiceAssistant Dev"
 ```bash
-./setup-codesign.sh   # Creates cert in login keychain (one-time)
-./build-and-run.sh    # Builds + signs + runs with stable identity
+./bundle-app.sh          # Build + assemble bundle only
+./bundle-app.sh --run    # Build + run with console log output
+./bundle-app.sh --open   # Build + launch as .app
+./bundle-app.sh --release --run  # Release build
 ```
-Config: `.codesign.env` (CERT_NAME, BINARY, BUNDLE_ID)
+
+Key files: `Info.plist`, `bundle-app.sh`
 
 ### Keyboard Shortcuts
 
