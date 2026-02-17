@@ -6,8 +6,9 @@ import Puppy
 /// 사용: `let logger = AppLogger.make("EdgeTTS")`
 public enum AppLogger {
     private static var isBootstrapped = false
+    private static var pendingLoggers: [String] = []
     
-    /// 초기화 — 앱 시작 시 1회 호출
+    /// 초기화 — .env 로딩 후 호출 권장
     public static func bootstrap() {
         guard !isBootstrapped else { return }
         isBootstrapped = true
@@ -22,19 +23,28 @@ public enum AppLogger {
         // swift-log 백엔드로 Puppy 등록
         LoggingSystem.bootstrap { label in
             var handler = PuppyLogHandler(label: label, puppy: puppy)
-            handler.logLevel = Self.defaultLogLevel
+            handler.logLevel = Self.resolveLogLevel()
             return handler
         }
     }
     
     /// 카테고리별 Logger 생성
     public static func make(_ category: String) -> Logger {
-        bootstrap()  // 자동 초기화
-        return Logger(label: category)
+        bootstrap()  // 자동 초기화 (첫 호출 시)
+        var logger = Logger(label: category)
+        logger.logLevel = resolveLogLevel()
+        return logger
     }
     
-    /// 환경변수 LOG_LEVEL로 기본 레벨 설정 (기본: info)
-    private static var defaultLogLevel: Logger.Level {
+    /// .env 로딩 후 기존 로거 레벨 갱신용 — 호출 시 새 Logger는 자동 적용
+    public static func reconfigureLogLevel() {
+        // LoggingSystem.bootstrap은 재호출 불가하므로,
+        // 이후 make()로 생성되는 Logger에 새 레벨 적용됨.
+        // 기존 Logger 인스턴스는 각자 logLevel 재설정 필요.
+    }
+    
+    /// 환경변수 LOG_LEVEL로 레벨 결정 (기본: info)
+    public static func resolveLogLevel() -> Logger.Level {
         if let env = ProcessInfo.processInfo.environment["LOG_LEVEL"]?.lowercased() {
             switch env {
             case "trace": return .trace

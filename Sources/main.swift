@@ -8,7 +8,7 @@ import Combine
 import ApplicationServices
 import Foundation
 import Logging
-private let logger = AppLogger.make("App")
+private var logger = AppLogger.make("App")
 
 // Environment variable loading
 func loadEnvironmentVariables() {
@@ -81,8 +81,11 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     private var videoTranscriber = VideoTranscriber()
     
     func applicationDidFinishLaunching(_ notification: Notification) {
-        // Load environment variables
+        // Load environment variables (.env 파일의 LOG_LEVEL 등)
         loadEnvironmentVariables()
+        
+        // .env 로딩 후 로그 레벨 재적용
+        logger.logLevel = AppLogger.resolveLogLevel()
         
         // Migrate WhisperKit models from legacy ~/Documents path
         WhisperModelManager.shared.migrateIfNeeded()
