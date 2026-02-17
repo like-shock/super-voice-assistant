@@ -23,8 +23,8 @@ class TranscriptionHistory {
     private var entries: [TranscriptionEntry] = []
     
     private var historyFileURL: URL {
-        let documentsPath = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let appSupportDir = documentsPath.appendingPathComponent("SuperVoiceAssistant", isDirectory: true)
+        let appSupportBase = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let appSupportDir = appSupportBase.appendingPathComponent("SuperVoiceAssistant", isDirectory: true)
         
         // Create directory if it doesn't exist
         try? FileManager.default.createDirectory(at: appSupportDir, withIntermediateDirectories: true)
@@ -33,7 +33,23 @@ class TranscriptionHistory {
     }
     
     private init() {
+        migrateFromDocuments()
         loadHistory()
+    }
+    
+    /// ~/Documents/SuperVoiceAssistant/ → ~/Library/Application Support/SuperVoiceAssistant/ 마이그레이션
+    private func migrateFromDocuments() {
+        let fm = FileManager.default
+        let oldDir = fm.urls(for: .documentDirectory, in: .userDomainMask).first!
+            .appendingPathComponent("SuperVoiceAssistant")
+        let oldFile = oldDir.appendingPathComponent("transcription_history.json")
+        guard fm.fileExists(atPath: oldFile.path), !fm.fileExists(atPath: historyFileURL.path) else { return }
+        do {
+            try fm.moveItem(at: oldFile, to: historyFileURL)
+            logger.info("Migrated history from Documents to Application Support")
+        } catch {
+            logger.warning("History migration failed: \(error)")
+        }
     }
     
     private func loadHistory() {
