@@ -412,9 +412,9 @@ public extension EdgeTTSEngine {
         
         public var displayName: String {
             switch self {
-            case .sunHi: return "SunHi (Female)"
-            case .inJoon: return "InJoon (Male)"
-            case .hyunsu: return "Hyunsu (Male/Multilingual)"
+            case .sunHi: return "SunHi (Female / KR)"
+            case .inJoon: return "InJoon (Male / KR)"
+            case .hyunsu: return "Hyunsu (Male / Multi)"
             }
         }
     }

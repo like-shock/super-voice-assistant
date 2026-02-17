@@ -163,15 +163,15 @@ struct TTSSettingsSection: View {
     @AppStorage("edgeTTSRate") private var edgeRate: Int = 0  // -50 ~ +100 percent
     
     private static let edgeVoicePresets: [(name: String, id: String)] = [
-        ("SunHi (Female)", "ko-KR-SunHiNeural"),
-        ("InJoon (Male)", "ko-KR-InJoonNeural"),
-        ("Hyunsu (Male/Multilingual)", "ko-KR-HyunsuMultilingualNeural"),
-        ("Ava (Female/Multilingual)", "en-US-AvaMultilingualNeural"),
-        ("Emma (Female/Multilingual)", "en-US-EmmaMultilingualNeural"),
-        ("Jenny (EN-F)", "en-US-JennyNeural"),
-        ("Aria (EN-F)", "en-US-AriaNeural"),
-        ("Guy (EN-M)", "en-US-GuyNeural"),
-        ("Xiaoxiao (ZH-F)", "zh-CN-XiaoxiaoNeural"),
+        ("SunHi (Female / KR)", "ko-KR-SunHiNeural"),
+        ("InJoon (Male / KR)", "ko-KR-InJoonNeural"),
+        ("Hyunsu (Male / Multi)", "ko-KR-HyunsuMultilingualNeural"),
+        ("Ava (Female / Multi)", "en-US-AvaMultilingualNeural"),
+        ("Emma (Female / Multi)", "en-US-EmmaMultilingualNeural"),
+        ("Jenny (Female / EN)", "en-US-JennyNeural"),
+        ("Aria (Female / EN)", "en-US-AriaNeural"),
+        ("Guy (Male / EN)", "en-US-GuyNeural"),
+        ("Xiaoxiao (Female / ZH)", "zh-CN-XiaoxiaoNeural"),
     ]
     
     private var edgeTTSCard: some View {
