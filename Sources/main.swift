@@ -64,6 +64,13 @@ extension KeyboardShortcuts.Name {
     static let pasteLastTranscription = Self("pasteLastTranscription")
 }
 
+/// Set a shortcut only if the user hasn't already customized it
+private func setDefaultShortcut(_ shortcut: KeyboardShortcuts.Shortcut, for name: KeyboardShortcuts.Name) {
+    if KeyboardShortcuts.getShortcut(for: name) == nil {
+        KeyboardShortcuts.setShortcut(shortcut, for: name)
+    }
+}
+
 class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDelegate, GeminiAudioRecordingManagerDelegate {
     var statusItem: NSStatusItem!
     var settingsWindow: SettingsWindowController?
@@ -150,13 +157,13 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         menu.addItem(NSMenuItem(title: "Quit", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q"))
         statusItem.menu = menu
         
-        // Set default keyboard shortcuts
-        KeyboardShortcuts.setShortcut(.init(.s, modifiers: [.command, .option]), for: .startRecording)
-        KeyboardShortcuts.setShortcut(.init(.x, modifiers: [.command, .option]), for: .geminiAudioRecording)
-        KeyboardShortcuts.setShortcut(.init(.a, modifiers: [.command, .option]), for: .showHistory)
-        KeyboardShortcuts.setShortcut(.init(.z, modifiers: [.command, .option]), for: .readSelectedText)
-        KeyboardShortcuts.setShortcut(.init(.c, modifiers: [.command, .option]), for: .toggleScreenRecording)
-        KeyboardShortcuts.setShortcut(.init(.v, modifiers: [.command, .option]), for: .pasteLastTranscription)
+        // Set default keyboard shortcuts (only if user hasn't customized them)
+        setDefaultShortcut(.init(.s, modifiers: [.command, .option]), for: .startRecording)
+        setDefaultShortcut(.init(.x, modifiers: [.command, .option]), for: .geminiAudioRecording)
+        setDefaultShortcut(.init(.a, modifiers: [.command, .option]), for: .showHistory)
+        setDefaultShortcut(.init(.z, modifiers: [.command, .option]), for: .readSelectedText)
+        setDefaultShortcut(.init(.c, modifiers: [.command, .option]), for: .toggleScreenRecording)
+        setDefaultShortcut(.init(.v, modifiers: [.command, .option]), for: .pasteLastTranscription)
         
         // Set up keyboard shortcut handlers
         KeyboardShortcuts.onKeyUp(for: .startRecording) { [weak self] in

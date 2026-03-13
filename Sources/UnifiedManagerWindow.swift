@@ -3,9 +3,10 @@ import SwiftUI
 
 enum ManagerTab: Int {
     case settings = 0
-    case history = 1
-    case statistics = 2
-    case audioDevices = 3
+    case shortcuts = 1
+    case history = 2
+    case statistics = 3
+    case audioDevices = 4
 }
 
 class UnifiedManagerWindow: NSWindowController {
@@ -49,7 +50,15 @@ class UnifiedManagerWindow: NSWindowController {
         settingsTab.label = "Settings"
         settingsTab.image = NSImage(systemSymbolName: "gear", accessibilityDescription: "Settings")
         tabViewController.addTabViewItem(settingsTab)
-        
+
+        // Shortcuts Tab
+        let shortcutSettingsView = ShortcutSettingsView()
+        let shortcutHosting = NSHostingController(rootView: shortcutSettingsView)
+        let shortcutTab = NSTabViewItem(viewController: shortcutHosting)
+        shortcutTab.label = "Shortcuts"
+        shortcutTab.image = NSImage(systemSymbolName: "keyboard", accessibilityDescription: "Shortcuts")
+        tabViewController.addTabViewItem(shortcutTab)
+
         // History Tab - Use the new TranscriptionHistoryViewController
         historyViewController = TranscriptionHistoryViewController()
         let historyTab = NSTabViewItem(viewController: historyViewController!)

@@ -162,11 +162,17 @@ Key files: `Info.plist`, `bundle-app.sh`
 
 ### Keyboard Shortcuts
 
-- **Cmd+Opt+S**: WhisperKit/Parakeet audio recording (offline, toggle)
-- **Cmd+Shift (hold)**: WhisperKit/Parakeet audio recording (hold to record, release to stop)
-- **Cmd+Opt+X**: Gemini audio recording (cloud)
-- **Cmd+Opt+Z**: Text-to-speech / Cancel TTS playback
-- **Cmd+Opt+C**: Screen recording with video transcription
-- **Cmd+Opt+A**: Show transcription history
-- **Cmd+Opt+V**: Paste last transcription at cursor
+All shortcuts are user-customizable via Settings > Shortcuts tab using `KeyboardShortcuts.Recorder`.
+Defaults are set only on first launch; user changes are persisted in UserDefaults.
+
+- **Cmd+Opt+S** (default): WhisperKit/Parakeet audio recording (offline, toggle)
+- **Cmd+Shift (hold)**: WhisperKit/Parakeet audio recording (hold to record, release to stop) — fixed, not customizable
+- **Cmd+Opt+X** (default): Gemini audio recording (cloud)
+- **Cmd+Opt+Z** (default): Text-to-speech / Cancel TTS playback
+- **Cmd+Opt+C** (default): Screen recording with video transcription
+- **Cmd+Opt+A** (default): Show transcription history
+- **Cmd+Opt+V** (default): Paste last transcription at cursor
 - **Escape**: Cancel recording
+
+**Key Files**:
+- `Sources/ShortcutSettingsView.swift` — Shortcut settings UI with KeyboardShortcuts.Recorder
