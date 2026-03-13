@@ -87,6 +87,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     private var screenRecorder = ScreenRecorder()
     private var currentVideoURL: URL?
     private var videoTranscriber = VideoTranscriber()
+    private var holdToRecordMonitor: Any?
+    private var holdRecordingActive = false
     
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Load environment variables (LOG_LEVEL etc. from .env file)
@@ -134,7 +136,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         
         // Create menu
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Recording: Press Command+Option+S", action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Recording: Press Command+Option+S (or hold Command+Shift)", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Gemini Audio Recording: Press Command+Option+X", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "History: Press Command+Option+A", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Read Selected Text: Press Command+Option+Z", action: nil, keyEquivalent: ""))
@@ -222,6 +224,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         KeyboardShortcuts.onKeyUp(for: .pasteLastTranscription) { [weak self] in
             self?.pasteLastTranscription()
         }
+
+        // Hold-to-record: hold Cmd+Shift to start recording, release to stop
+        setupHoldToRecord()
 
         // Set up audio manager
         audioManager = AudioTranscriptionManager()
@@ -784,6 +789,37 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         sendNotification(title: "Transcription Complete", subtitle: "Pasted at cursor", body: text, sound: true)
     }
     
+    // MARK: - Hold-to-Record (Cmd+Shift)
+
+    func setupHoldToRecord() {
+        let requiredFlags: NSEvent.ModifierFlags = [.command, .shift]
+
+        holdToRecordMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
+            guard let self = self else { return }
+            let pressed = event.modifierFlags.contains(requiredFlags)
+
+            if pressed && !self.holdRecordingActive {
+                // Cmd+Shift pressed — start recording if possible
+                guard !self.screenRecorder.recording,
+                      !self.geminiAudioManager.isRecording,
+                      !self.audioManager.isRecording else { return }
+
+                self.holdRecordingActive = true
+                self.stopTranscriptionIndicator()
+                self.audioManager.toggleRecording()
+                logger.info("Hold-to-record started (Cmd+Shift held)")
+
+            } else if !pressed && self.holdRecordingActive {
+                // Cmd+Shift released — stop recording
+                self.holdRecordingActive = false
+                if self.audioManager.isRecording {
+                    self.audioManager.toggleRecording()
+                    logger.info("Hold-to-record stopped (Cmd+Shift released)")
+                }
+            }
+        }
+    }
+
     func showTranscriptionError(_ message: String) {
         sendNotification(title: "Transcription Error", body: message, sound: true)
     }

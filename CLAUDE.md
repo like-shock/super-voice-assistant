@@ -162,7 +162,8 @@ Key files: `Info.plist`, `bundle-app.sh`
 
 ### Keyboard Shortcuts
 
-- **Cmd+Opt+S**: WhisperKit/Parakeet audio recording (offline)
+- **Cmd+Opt+S**: WhisperKit/Parakeet audio recording (offline, toggle)
+- **Cmd+Shift (hold)**: WhisperKit/Parakeet audio recording (hold to record, release to stop)
 - **Cmd+Opt+X**: Gemini audio recording (cloud)
 - **Cmd+Opt+Z**: Text-to-speech / Cancel TTS playback
 - **Cmd+Opt+C**: Screen recording with video transcription
