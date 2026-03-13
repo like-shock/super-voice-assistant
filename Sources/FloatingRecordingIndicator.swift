@@ -1,5 +1,6 @@
 import Cocoa
 import Logging
+import SharedModels
 
 private let logger = AppLogger.make("FloatingIndicator")
 
