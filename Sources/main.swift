@@ -134,10 +134,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         
         // Create menu
         let menu = NSMenu()
-        menu.addItem(NSMenuItem(title: "Recording: Press Command+Option+Z", action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Recording: Press Command+Option+S", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Gemini Audio Recording: Press Command+Option+X", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "History: Press Command+Option+A", action: nil, keyEquivalent: ""))
-        menu.addItem(NSMenuItem(title: "Read Selected Text: Press Command+Option+S", action: nil, keyEquivalent: ""))
+        menu.addItem(NSMenuItem(title: "Read Selected Text: Press Command+Option+Z", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Screen Recording: Press Command+Option+C", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem(title: "Paste Last Transcription: Press Command+Option+V", action: nil, keyEquivalent: ""))
         menu.addItem(NSMenuItem.separator())
@@ -149,10 +149,10 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         statusItem.menu = menu
         
         // Set default keyboard shortcuts
-        KeyboardShortcuts.setShortcut(.init(.z, modifiers: [.command, .option]), for: .startRecording)
+        KeyboardShortcuts.setShortcut(.init(.s, modifiers: [.command, .option]), for: .startRecording)
         KeyboardShortcuts.setShortcut(.init(.x, modifiers: [.command, .option]), for: .geminiAudioRecording)
         KeyboardShortcuts.setShortcut(.init(.a, modifiers: [.command, .option]), for: .showHistory)
-        KeyboardShortcuts.setShortcut(.init(.s, modifiers: [.command, .option]), for: .readSelectedText)
+        KeyboardShortcuts.setShortcut(.init(.z, modifiers: [.command, .option]), for: .readSelectedText)
         KeyboardShortcuts.setShortcut(.init(.c, modifiers: [.command, .option]), for: .toggleScreenRecording)
         KeyboardShortcuts.setShortcut(.init(.v, modifiers: [.command, .option]), for: .pasteLastTranscription)
         
@@ -202,7 +202,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
 
             // Prevent starting Gemini audio recording if WhisperKit recording is active
             if self.audioManager.isRecording {
-                sendNotification(title: "Cannot Start Gemini Audio Recording", body: "WhisperKit recording is currently active. Stop it first with Cmd+Option+Z")
+                sendNotification(title: "Cannot Start Gemini Audio Recording", body: "WhisperKit recording is currently active. Stop it first with Cmd+Option+S")
                 logger.warning("Blocked Gemini audio recording - WhisperKit recording is active")
                 return
             }
@@ -401,7 +401,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     func toggleScreenRecording() {
         // Prevent starting screen recording if audio recording is active
         if !screenRecorder.recording && audioManager.isRecording {
-            sendNotification(title: "Cannot Start Screen Recording", body: "Audio recording is currently active. Stop it first with Cmd+Option+Z")
+            sendNotification(title: "Cannot Start Screen Recording", body: "Audio recording is currently active. Stop it first with Cmd+Option+S")
             logger.warning("Blocked screen recording - audio recording is active")
             return
         }

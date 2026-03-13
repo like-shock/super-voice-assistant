@@ -93,7 +93,7 @@ Auto-migration from legacy paths on first launch:
 - `bundle-app.sh` assembles `.app` bundle from SPM build output
 
 **Features**:
-- ✅ Cmd+Opt+S keyboard shortcut for reading selected text aloud
+- ✅ Cmd+Opt+Z keyboard shortcut for reading selected text aloud
 - ✅ Triple engine: Gemini (cloud) / Supertonic (local/offline) / Edge TTS (cloud, free)
 - ✅ Settings UI for engine selection, voice style, language, speed
 - ✅ Sequential streaming for smooth, natural speech with minimal latency
@@ -113,7 +113,7 @@ Auto-migration from legacy paths on first launch:
 - `SharedSources/GeminiAudioTranscriber.swift` - Gemini API transcription
 
 **Features**:
-- ✅ Cmd+Opt+Z: WhisperKit/Parakeet recording (offline)
+- ✅ Cmd+Opt+S: WhisperKit/Parakeet recording (offline)
 - ✅ Cmd+Opt+X: Gemini audio recording (cloud)
 - ✅ Multiple WhisperKit models (distil-large-v3, large-v3-turbo, large-v3)
 - ✅ Parakeet v2/v3 support via FluidAudio SDK
@@ -162,9 +162,9 @@ Key files: `Info.plist`, `bundle-app.sh`
 
 ### Keyboard Shortcuts
 
-- **Cmd+Opt+Z**: WhisperKit/Parakeet audio recording (offline)
+- **Cmd+Opt+S**: WhisperKit/Parakeet audio recording (offline)
 - **Cmd+Opt+X**: Gemini audio recording (cloud)
-- **Cmd+Opt+S**: Text-to-speech / Cancel TTS playback
+- **Cmd+Opt+Z**: Text-to-speech / Cancel TTS playback
 - **Cmd+Opt+C**: Screen recording with video transcription
 - **Cmd+Opt+A**: Show transcription history
 - **Cmd+Opt+V**: Paste last transcription at cursor
