@@ -158,7 +158,7 @@ struct ShortcutSettingsView: View {
                 }
             }
             .frame(width: 220)
-            .onChange(of: holdModifier) { _ in
+            .onChange(of: holdModifier) {
                 // Notify AppDelegate to re-setup hold-to-record monitor
                 NotificationCenter.default.post(name: .holdToRecordModifierChanged, object: nil)
             }

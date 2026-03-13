@@ -12,7 +12,7 @@ class FloatingRecordingIndicator {
     private var panel: NSPanel?
     private var levelView: RecordingLevelView?
     private let panelWidth: CGFloat = 200
-    private let panelHeight: CGFloat = 60
+    private let panelHeight: CGFloat = 64
 
     func show() {
         if panel != nil { return }
@@ -132,8 +132,9 @@ class RecordingLevelView: NSView {
         bgPath.fill()
 
         let horizontalPad: CGFloat = 14
-        let topRowY = rect.height * 0.55    // upper row center
-        let bottomRowY = rect.height * 0.22 // lower row center
+        // NSView origin is bottom-left: top row is higher Y, bottom row is lower Y
+        let topRowY = rect.height * 0.70    // upper row center (app info)
+        let bottomRowY = rect.height * 0.30 // lower row center (waveform)
 
         // --- Line 1: App icon + App name ---
         drawAppInfo(in: rect, centerY: topRowY, horizontalPad: horizontalPad)
@@ -169,7 +170,7 @@ class RecordingLevelView: NSView {
     }
 
     private func drawWaveformRow(in rect: NSRect, centerY: CGFloat, horizontalPad: CGFloat) {
-        let dotRadius: CGFloat = 4
+        let dotRadius: CGFloat = 5
 
         // Red recording dot
         let dotX = horizontalPad
@@ -183,8 +184,8 @@ class RecordingLevelView: NSView {
         let waveWidth = waveEndX - waveStartX
         guard waveWidth > 0 else { return }
 
-        let maxBarHeight: CGFloat = 14
-        let minBarHeight: CGFloat = 2
+        let maxBarHeight: CGFloat = 22
+        let minBarHeight: CGFloat = 3
         let barWidth: CGFloat = 3
         let barSpacing = max(1, (waveWidth - CGFloat(barCount) * barWidth) / CGFloat(barCount - 1))
 
