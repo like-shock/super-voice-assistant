@@ -5,12 +5,12 @@ import SharedModels
 private let logger = AppLogger.make("FloatingIndicator")
 
 /// Floating panel that shows recording status at the bottom center of the active screen.
-/// Non-activating, click-through, always on top.
+/// Non-activating, click-through, always on top. Spokenly-style waveform visualization.
 class FloatingRecordingIndicator {
     private var panel: NSPanel?
     private var levelView: RecordingLevelView?
-    private let panelWidth: CGFloat = 200
-    private let panelHeight: CGFloat = 36
+    private let panelWidth: CGFloat = 180
+    private let panelHeight: CGFloat = 40
 
     func show() {
         if panel != nil { return }
@@ -70,106 +70,99 @@ class FloatingRecordingIndicator {
     }
 
     private func positionPanel(_ panel: NSPanel) {
-        // Place at bottom center of the screen containing the mouse cursor
         let screen = NSScreen.screens.first(where: { NSMouseInRect(NSEvent.mouseLocation, $0.frame, false) })
             ?? NSScreen.main
             ?? NSScreen.screens[0]
 
         let screenFrame = screen.visibleFrame
         let x = screenFrame.midX - panelWidth / 2
-        let y = screenFrame.origin.y + 48  // 48pt above bottom
+        let y = screenFrame.origin.y + 48
         panel.setFrameOrigin(NSPoint(x: x, y: y))
     }
 }
 
-// MARK: - Custom NSView for recording level visualization
+// MARK: - Waveform Recording View
 
 class RecordingLevelView: NSView {
-    private var normalizedLevel: Float = 0
     private var isProcessing = false
     private var processingDotCount = 0
     private var processingTimer: Timer?
+
+    // Waveform: circular buffer of recent audio levels
+    private let barCount = 24
+    private var levelHistory: [Float] = []
+    private var currentLevel: Float = 0
+
+    override init(frame: NSRect) {
+        super.init(frame: frame)
+        levelHistory = Array(repeating: 0, count: barCount)
+    }
+
+    required init?(coder: NSCoder) {
+        fatalError("init(coder:) has not been implemented")
+    }
 
     override func draw(_ dirtyRect: NSRect) {
         super.draw(dirtyRect)
 
         let rect = bounds
-        let cornerRadius: CGFloat = 18
+        let cornerRadius: CGFloat = rect.height / 2
 
         // Background: dark rounded pill
         let bgPath = NSBezierPath(roundedRect: rect, xRadius: cornerRadius, yRadius: cornerRadius)
-        NSColor(white: 0.1, alpha: 0.85).setFill()
+        NSColor(white: 0.1, alpha: 0.88).setFill()
         bgPath.fill()
 
         if isProcessing {
             drawProcessing(in: rect)
         } else {
-            drawRecordingLevel(in: rect)
+            drawWaveform(in: rect)
         }
     }
 
-    private func drawRecordingLevel(in rect: NSRect) {
-        let padding: CGFloat = 12
+    private func drawWaveform(in rect: NSRect) {
+        let leftPadding: CGFloat = 14
+        let rightPadding: CGFloat = 14
         let dotRadius: CGFloat = 5
+        let topBottomPad: CGFloat = 10
 
-        // Red recording dot
-        let dotRect = NSRect(
-            x: padding,
-            y: rect.midY - dotRadius,
-            width: dotRadius * 2,
-            height: dotRadius * 2
-        )
+        // Red recording dot (pulsing)
+        let dotY = rect.midY - dotRadius
+        let dotRect = NSRect(x: leftPadding, y: dotY, width: dotRadius * 2, height: dotRadius * 2)
         NSColor.systemRed.setFill()
         NSBezierPath(ovalIn: dotRect).fill()
 
-        // "REC" label
-        let labelAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 11, weight: .semibold),
-            .foregroundColor: NSColor.white
-        ]
-        let label = NSAttributedString(string: "REC", attributes: labelAttrs)
-        let labelX = dotRect.maxX + 6
-        let labelY = rect.midY - label.size().height / 2
-        label.draw(at: NSPoint(x: labelX, y: labelY))
+        // Waveform bars
+        let waveStartX = dotRect.maxX + 12
+        let waveEndX = rect.width - rightPadding
+        let waveWidth = waveEndX - waveStartX
+        let maxBarHeight = rect.height - topBottomPad * 2
+        let minBarHeight: CGFloat = 2
+        let barWidth: CGFloat = 3
+        let barSpacing: CGFloat = max(1, (waveWidth - CGFloat(barCount) * barWidth) / CGFloat(barCount - 1))
 
-        // Level bar
-        let barX = labelX + label.size().width + 10
-        let barWidth = rect.width - barX - padding
-        let barHeight: CGFloat = 6
-        let barY = rect.midY - barHeight / 2
+        for i in 0..<barCount {
+            let level = CGFloat(levelHistory[i])
+            let barHeight = max(minBarHeight, level * maxBarHeight)
+            let x = waveStartX + CGFloat(i) * (barWidth + barSpacing)
+            let y = rect.midY - barHeight / 2
 
-        // Bar background
-        let barBgRect = NSRect(x: barX, y: barY, width: barWidth, height: barHeight)
-        let barBgPath = NSBezierPath(roundedRect: barBgRect, xRadius: 3, yRadius: 3)
-        NSColor(white: 0.3, alpha: 1).setFill()
-        barBgPath.fill()
+            let barRect = NSRect(x: x, y: y, width: barWidth, height: barHeight)
+            let barPath = NSBezierPath(roundedRect: barRect, xRadius: barWidth / 2, yRadius: barWidth / 2)
 
-        // Bar fill
-        let fillWidth = CGFloat(normalizedLevel) * barWidth
-        if fillWidth > 0 {
-            let fillRect = NSRect(x: barX, y: barY, width: fillWidth, height: barHeight)
-            let fillPath = NSBezierPath(roundedRect: fillRect, xRadius: 3, yRadius: 3)
-
-            // Color gradient: green → yellow → red
-            let color: NSColor
-            if normalizedLevel < 0.5 {
-                color = NSColor.systemGreen
-            } else if normalizedLevel < 0.8 {
-                color = NSColor.systemYellow
-            } else {
-                color = NSColor.systemRed
-            }
-            color.setFill()
-            fillPath.fill()
+            // Color: white with opacity based on level
+            let alpha = 0.4 + level * 0.6
+            NSColor.white.withAlphaComponent(alpha).setFill()
+            barPath.fill()
         }
     }
 
     private func drawProcessing(in rect: NSRect) {
-        let padding: CGFloat = 12
+        let padding: CGFloat = 14
 
         // Gear icon
         let gearAttrs: [NSAttributedString.Key: Any] = [
-            .font: NSFont.systemFont(ofSize: 13),
+            .font: NSFont.systemFont(ofSize: 14),
             .foregroundColor: NSColor.white
         ]
         let gear = NSAttributedString(string: "⚙", attributes: gearAttrs)
@@ -191,14 +184,20 @@ class RecordingLevelView: NSView {
     func updateLevel(db: Float) {
         isProcessing = false
         stopProcessingTimer()
-        // Convert dB to 0-1 range (-55dB to -20dB for normal speech)
-        normalizedLevel = max(0, min(1, (db + 55) / 35))
+
+        // Convert dB to 0-1 range
+        currentLevel = max(0, min(1, (db + 55) / 35))
+
+        // Shift history left, push new level
+        levelHistory.removeFirst()
+        levelHistory.append(currentLevel)
+
         needsDisplay = true
     }
 
     func showProcessing() {
         isProcessing = true
-        normalizedLevel = 0
+        levelHistory = Array(repeating: 0, count: barCount)
         processingDotCount = 0
         needsDisplay = true
 
