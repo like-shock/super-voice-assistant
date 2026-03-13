@@ -94,6 +94,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     private var screenRecorder = ScreenRecorder()
     private var currentVideoURL: URL?
     private var videoTranscriber = VideoTranscriber()
+    private let floatingIndicator = FloatingRecordingIndicator()
     private var holdToRecordMonitor: Any?
     private var holdRecordingActive = false
     
@@ -220,6 +221,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
             // processing indicator is stopped and UI is reset.
             if !self.geminiAudioManager.isRecording {
                 self.stopTranscriptionIndicator()
+                self.floatingIndicator.show()
+            } else {
+                self.floatingIndicator.hide()
             }
             self.geminiAudioManager.toggleRecording()
         }
@@ -940,26 +944,32 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     
     func audioLevelDidUpdate(db: Float) {
         updateStatusBarWithLevel(db: db)
+        floatingIndicator.show()
+        floatingIndicator.updateLevel(db: db)
     }
     
     func transcriptionDidStart() {
         startTranscriptionIndicator()
+        floatingIndicator.showProcessing()
     }
     
     func transcriptionDidComplete(text: String) {
         stopTranscriptionIndicator()
+        floatingIndicator.hide()
         pasteTextAtCursor(text)
         showTranscriptionNotification(text)
     }
-    
+
     func transcriptionDidFail(error: String) {
         stopTranscriptionIndicator()
+        floatingIndicator.hide()
         showTranscriptionError(error)
     }
-    
+
     func recordingWasCancelled() {
         // Ensure any processing indicator is stopped
         stopTranscriptionIndicator()
+        floatingIndicator.hide()
         // Reset the status bar icon
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Voice Assistant")
@@ -973,6 +983,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
     func recordingWasSkippedDueToSilence() {
         // Ensure any processing indicator is stopped
         stopTranscriptionIndicator()
+        floatingIndicator.hide()
         // Reset the status bar icon
         if let button = statusItem.button {
             button.image = NSImage(systemSymbolName: "waveform", accessibilityDescription: "Voice Assistant")

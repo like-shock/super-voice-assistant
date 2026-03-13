@@ -118,6 +118,7 @@ Auto-migration from legacy paths on first launch:
 - ✅ Multiple WhisperKit models (distil-large-v3, large-v3-turbo, large-v3)
 - ✅ Parakeet v2/v3 support via FluidAudio SDK
 - ✅ Mutual exclusion between recording modes
+- ✅ Floating recording indicator (bottom-center, fade in/out, audio level bar, processing animation)
 
 ### Screen Recording & Video Transcription
 
