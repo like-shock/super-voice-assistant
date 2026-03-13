@@ -1,7 +1,37 @@
 import SwiftUI
 import KeyboardShortcuts
 
+/// Modifier combinations available for hold-to-record
+enum HoldToRecordModifier: String, CaseIterable, Identifiable {
+    case commandShift = "commandShift"
+    case commandOption = "commandOption"
+    case commandControl = "commandControl"
+    case disabled = "disabled"
+
+    var id: String { rawValue }
+
+    var label: String {
+        switch self {
+        case .commandShift: return "⌘⇧ Command + Shift"
+        case .commandOption: return "⌘⌥ Command + Option"
+        case .commandControl: return "⌘⌃ Command + Control"
+        case .disabled: return "Disabled"
+        }
+    }
+
+    var flags: NSEvent.ModifierFlags? {
+        switch self {
+        case .commandShift: return [.command, .shift]
+        case .commandOption: return [.command, .option]
+        case .commandControl: return [.command, .control]
+        case .disabled: return nil
+        }
+    }
+}
+
 struct ShortcutSettingsView: View {
+    @AppStorage("holdToRecordModifier") private var holdModifier: String = HoldToRecordModifier.commandShift.rawValue
+
     var body: some View {
         VStack(spacing: 0) {
             // Header
@@ -35,6 +65,8 @@ struct ShortcutSettingsView: View {
                                 name: .geminiAudioRecording,
                                 description: "Cloud transcription"
                             )
+                            Divider()
+                            holdToRecordRow()
                         }
                         .padding(.vertical, 4)
                     } label: {
@@ -84,30 +116,6 @@ struct ShortcutSettingsView: View {
                             .font(.headline)
                     }
 
-                    // Hold-to-record info (not configurable via Recorder)
-                    GroupBox {
-                        HStack {
-                            VStack(alignment: .leading, spacing: 4) {
-                                Text("Hold-to-Record")
-                                    .fontWeight(.medium)
-                                Text("Hold Command+Shift to record, release to stop")
-                                    .font(.caption)
-                                    .foregroundColor(.secondary)
-                            }
-                            Spacer()
-                            Text("⌘⇧")
-                                .font(.system(.body, design: .rounded))
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 4)
-                                .background(Color.secondary.opacity(0.15))
-                                .cornerRadius(6)
-                        }
-                        .padding(.vertical, 4)
-                    } label: {
-                        Label("Fixed Shortcuts", systemImage: "lock.fill")
-                            .font(.headline)
-                    }
-
                     // Reset button
                     Button(action: resetToDefaults) {
                         Label("Reset All to Defaults", systemImage: "arrow.counterclockwise")
@@ -134,6 +142,29 @@ struct ShortcutSettingsView: View {
         }
     }
 
+    private func holdToRecordRow() -> some View {
+        HStack {
+            VStack(alignment: .leading, spacing: 2) {
+                Text("Hold-to-Record")
+                    .fontWeight(.medium)
+                Text("Hold to record, release to stop")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+            }
+            Spacer()
+            Picker("", selection: $holdModifier) {
+                ForEach(HoldToRecordModifier.allCases) { mod in
+                    Text(mod.label).tag(mod.rawValue)
+                }
+            }
+            .frame(width: 220)
+            .onChange(of: holdModifier) { _ in
+                // Notify AppDelegate to re-setup hold-to-record monitor
+                NotificationCenter.default.post(name: .holdToRecordModifierChanged, object: nil)
+            }
+        }
+    }
+
     private func resetToDefaults() {
         KeyboardShortcuts.setShortcut(.init(.s, modifiers: [.command, .option]), for: .startRecording)
         KeyboardShortcuts.setShortcut(.init(.x, modifiers: [.command, .option]), for: .geminiAudioRecording)
@@ -141,5 +172,10 @@ struct ShortcutSettingsView: View {
         KeyboardShortcuts.setShortcut(.init(.z, modifiers: [.command, .option]), for: .readSelectedText)
         KeyboardShortcuts.setShortcut(.init(.c, modifiers: [.command, .option]), for: .toggleScreenRecording)
         KeyboardShortcuts.setShortcut(.init(.v, modifiers: [.command, .option]), for: .pasteLastTranscription)
+        holdModifier = HoldToRecordModifier.commandShift.rawValue
     }
+}
+
+extension Notification.Name {
+    static let holdToRecordModifierChanged = Notification.Name("holdToRecordModifierChanged")
 }

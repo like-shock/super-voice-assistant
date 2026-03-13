@@ -796,17 +796,29 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
         sendNotification(title: "Transcription Complete", subtitle: "Pasted at cursor", body: text, sound: true)
     }
     
-    // MARK: - Hold-to-Record (Cmd+Shift)
+    // MARK: - Hold-to-Record (configurable modifier keys)
 
     func setupHoldToRecord() {
-        let requiredFlags: NSEvent.ModifierFlags = [.command, .shift]
+        // Remove existing monitor if any
+        if let monitor = holdToRecordMonitor {
+            NSEvent.removeMonitor(monitor)
+            holdToRecordMonitor = nil
+        }
+
+        let modifierRaw = UserDefaults.standard.string(forKey: "holdToRecordModifier") ?? HoldToRecordModifier.commandShift.rawValue
+        guard let modifier = HoldToRecordModifier(rawValue: modifierRaw),
+              let requiredFlags = modifier.flags else {
+            logger.info("Hold-to-record disabled")
+            return
+        }
+
+        logger.info("Hold-to-record configured: \(modifier.label)")
 
         holdToRecordMonitor = NSEvent.addGlobalMonitorForEvents(matching: .flagsChanged) { [weak self] event in
             guard let self = self else { return }
             let pressed = event.modifierFlags.contains(requiredFlags)
 
             if pressed && !self.holdRecordingActive {
-                // Cmd+Shift pressed — start recording if possible
                 guard !self.screenRecorder.recording,
                       !self.geminiAudioManager.isRecording,
                       !self.audioManager.isRecording else { return }
@@ -814,16 +826,24 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                 self.holdRecordingActive = true
                 self.stopTranscriptionIndicator()
                 self.audioManager.toggleRecording()
-                logger.info("Hold-to-record started (Cmd+Shift held)")
+                logger.info("Hold-to-record started")
 
             } else if !pressed && self.holdRecordingActive {
-                // Cmd+Shift released — stop recording
                 self.holdRecordingActive = false
                 if self.audioManager.isRecording {
                     self.audioManager.toggleRecording()
-                    logger.info("Hold-to-record stopped (Cmd+Shift released)")
+                    logger.info("Hold-to-record stopped")
                 }
             }
+        }
+
+        // Listen for settings changes
+        NotificationCenter.default.addObserver(
+            forName: .holdToRecordModifierChanged,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            self?.setupHoldToRecord()
         }
     }
 

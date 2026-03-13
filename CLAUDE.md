@@ -166,7 +166,7 @@ All shortcuts are user-customizable via Settings > Shortcuts tab using `Keyboard
 Defaults are set only on first launch; user changes are persisted in UserDefaults.
 
 - **Cmd+Opt+S** (default): WhisperKit/Parakeet audio recording (offline, toggle)
-- **Cmd+Shift (hold)**: WhisperKit/Parakeet audio recording (hold to record, release to stop) — fixed, not customizable
+- **Cmd+Shift (hold)** (default): WhisperKit/Parakeet audio recording (hold to record, release to stop) — configurable via Settings (Cmd+Shift, Cmd+Opt, Cmd+Ctrl, or disabled)
 - **Cmd+Opt+X** (default): Gemini audio recording (cloud)
 - **Cmd+Opt+Z** (default): Text-to-speech / Cancel TTS playback
 - **Cmd+Opt+C** (default): Screen recording with video transcription
