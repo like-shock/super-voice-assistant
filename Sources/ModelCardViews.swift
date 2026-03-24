@@ -228,7 +228,7 @@ struct Qwen3ASRModelCard: View {
     let onDownload: () -> Void
 
     var isDownloaded: Bool {
-        loadingState == .loaded
+        loadingState == .loaded || loadingState == .downloaded
     }
 
     var body: some View {
@@ -283,40 +283,37 @@ struct Qwen3ASRModelCard: View {
             Spacer()
 
             // Download button or status
-            if isDownloaded {
-                switch loadingState {
-                case .loading:
-                    HStack {
-                        ProgressView()
-                            .scaleEffect(0.5)
-                            .frame(width: 16, height: 16)
-                        Text("Loading...")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
-                case .loaded:
-                    HStack {
-                        Image(systemName: "checkmark.circle.fill")
-                            .foregroundColor(.green)
-                        Text("Loaded")
-                            .font(.caption)
-                            .foregroundColor(.green)
-                    }
-                default:
-                    HStack {
-                        Image(systemName: "checkmark.circle")
-                            .foregroundColor(.blue)
-                        Text("Downloaded")
-                            .font(.caption)
-                            .foregroundColor(.secondary)
-                    }
+            if loadingState == .loading {
+                HStack {
+                    ProgressView()
+                        .scaleEffect(0.5)
+                        .frame(width: 16, height: 16)
+                    Text("Loading...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
                 }
-            } else if loadingState == .downloading || loadingState == .loading {
+            } else if loadingState == .loaded {
+                HStack {
+                    Image(systemName: "checkmark.circle.fill")
+                        .foregroundColor(.green)
+                    Text("Loaded")
+                        .font(.caption)
+                        .foregroundColor(.green)
+                }
+            } else if loadingState == .downloaded {
+                HStack {
+                    Image(systemName: "checkmark.circle")
+                        .foregroundColor(.blue)
+                    Text("Downloaded")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            } else if loadingState == .downloading {
                 HStack(spacing: 8) {
                     ProgressView()
                         .progressViewStyle(.linear)
                         .frame(width: 80)
-                    Text(loadingState == .downloading ? "Downloading..." : "Loading...")
+                    Text("Downloading...")
                         .font(.caption)
                         .foregroundColor(.secondary)
                 }

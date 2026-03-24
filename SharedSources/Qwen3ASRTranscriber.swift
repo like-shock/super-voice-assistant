@@ -54,6 +54,7 @@ public enum Qwen3ASRVariant: String, CaseIterable {
 public enum Qwen3ASRLoadingState: Equatable {
     case notDownloaded
     case downloading
+    case downloaded
     case loading
     case loaded
 }

@@ -99,8 +99,7 @@ struct SettingsView: View {
                         Qwen3ASRModelCard(
                             variant: variant,
                             isSelected: modelState.selectedEngine == .qwen3ASR && modelState.qwen3ASRVariant == variant,
-                            loadingState: modelState.selectedEngine == .qwen3ASR && modelState.qwen3ASRVariant == variant
-                                ? modelState.qwen3ASRLoadingState : .notDownloaded,
+                            loadingState: qwen3ASRLoadingState(for: variant),
                             onSelect: {
                                 modelState.selectedEngine = .qwen3ASR
                                 modelState.qwen3ASRVariant = variant
@@ -294,6 +293,21 @@ struct SettingsView: View {
         let modelPath = documentsPath.appendingPathComponent("FluidAudio").appendingPathComponent(modelName)
 
         if FileManager.default.fileExists(atPath: modelPath.path) {
+            return .downloaded
+        }
+        return .notDownloaded
+    }
+
+    /// Get loading state for a Qwen3-ASR variant, checking UserDefaults for non-selected variants
+    private func qwen3ASRLoadingState(for variant: Qwen3ASRVariant) -> Qwen3ASRLoadingState {
+        // For the selected variant when Qwen3-ASR is active, use the actual state
+        if modelState.selectedEngine == .qwen3ASR && modelState.qwen3ASRVariant == variant {
+            return modelState.qwen3ASRLoadingState
+        }
+
+        // For other variants, check if previously downloaded (cached by HuggingFace Hub)
+        let downloaded = UserDefaults.standard.stringArray(forKey: "qwen3ASRDownloadedVariants") ?? []
+        if downloaded.contains(variant.rawValue) {
             return .downloaded
         }
         return .notDownloaded

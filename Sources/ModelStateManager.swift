@@ -111,6 +111,12 @@ class ModelStateManager: ObservableObject {
             self.qwen3ASRVariant = variant
         }
 
+        // Restore Qwen3-ASR download status from UserDefaults
+        let downloadedVariants = UserDefaults.standard.stringArray(forKey: "qwen3ASRDownloadedVariants") ?? []
+        if downloadedVariants.contains(self.qwen3ASRVariant.rawValue) {
+            self.qwen3ASRLoadingState = .downloaded
+        }
+
         // Restore the selected WhisperKit model from UserDefaults
         self.selectedModel = UserDefaults.standard.string(forKey: "selectedWhisperModel")
     }
@@ -424,7 +430,9 @@ class ModelStateManager: ObservableObject {
         // Cancel any existing loading task
         currentQwen3ASRLoadingTask?.cancel()
 
-        qwen3ASRLoadingState = .downloading
+        // Show "Loading..." if files are cached, "Downloading..." if first time
+        let downloaded = UserDefaults.standard.stringArray(forKey: "qwen3ASRDownloadedVariants") ?? []
+        qwen3ASRLoadingState = downloaded.contains(qwen3ASRVariant.rawValue) ? .loading : .downloading
         logger.info("[Qwen3-ASR] Loading model: \(qwen3ASRVariant.displayName)")
 
         // Load off MainActor to prevent potential deadlock
@@ -450,6 +458,12 @@ class ModelStateManager: ObservableObject {
                 await MainActor.run {
                     ModelStateManager.shared.loadedQwen3ASRTranscriber = transcriber
                     ModelStateManager.shared.qwen3ASRLoadingState = .loaded
+                    // Persist download status so we know files are cached on next launch
+                    var downloaded = UserDefaults.standard.stringArray(forKey: "qwen3ASRDownloadedVariants") ?? []
+                    if !downloaded.contains(variant.rawValue) {
+                        downloaded.append(variant.rawValue)
+                        UserDefaults.standard.set(downloaded, forKey: "qwen3ASRDownloadedVariants")
+                    }
                 }
 
                 logger.info("Qwen3-ASR model loaded successfully: \(variant.displayName)")
@@ -475,9 +489,11 @@ class ModelStateManager: ObservableObject {
 
     /// Unload Qwen3-ASR model to free memory
     func unloadQwen3ASRModel() {
+        let wasLoaded = loadedQwen3ASRTranscriber != nil
         loadedQwen3ASRTranscriber?.unloadModel()
         loadedQwen3ASRTranscriber = nil
-        qwen3ASRLoadingState = .notDownloaded
+        // Keep .downloaded state if model was previously loaded (files cached by HF Hub)
+        qwen3ASRLoadingState = wasLoaded ? .downloaded : qwen3ASRLoadingState
         logger.info("Qwen3-ASR model unloaded")
     }
 
