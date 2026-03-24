@@ -32,6 +32,14 @@ BUILT_BINARY=".build/$CONFIG/SuperVoiceAssistant"
 echo "🔨 Building ($CONFIG)..."
 swift build $BUILD_FLAGS
 
+# 1.5. Build MLX Metal shader library (required for Qwen3-ASR GPU inference)
+MLX_METALLIB=".build/$CONFIG/mlx.metallib"
+MLX_SCRIPT=".build/checkouts/qwen3-asr-swift/scripts/build_mlx_metallib.sh"
+if [ -f "$MLX_SCRIPT" ] && [ ! -f "$MLX_METALLIB" ]; then
+    echo "🔧 Building MLX Metal shaders..."
+    BUILD_DIR="$(pwd)/.build" bash "$MLX_SCRIPT" "$CONFIG" || echo "⚠️  MLX metallib build failed (Qwen3-ASR will not work)"
+fi
+
 # 2. Assemble .app bundle
 echo "📦 Assembling $APP_NAME..."
 rm -rf "$APP_DIR"
@@ -51,6 +59,13 @@ fi
 # .env → bundle Resources (for loadEnvironmentVariables)
 if [ -f .env ]; then
     cp .env "$RESOURCES_DIR/.env"
+fi
+
+# MLX Metal shader library (required for Qwen3-ASR GPU inference)
+# MLX looks for mlx.metallib next to the executable first
+if [ -f ".build/$CONFIG/mlx.metallib" ]; then
+    echo "📎 Copying MLX Metal library..."
+    cp ".build/$CONFIG/mlx.metallib" "$MACOS_DIR/"
 fi
 
 # 3. Codesign (ad-hoc — .app bundle uses CFBundleIdentifier for stable identity)
