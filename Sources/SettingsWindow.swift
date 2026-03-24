@@ -81,6 +81,45 @@ struct SettingsView: View {
                         )
                     }
 
+                    // Qwen3-ASR section header
+                    HStack {
+                        Text("Qwen3-ASR")
+                            .font(.headline)
+                            .foregroundColor(.primary)
+                        Text("by Alibaba (MLX)")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                        Spacer()
+                    }
+                    .padding(.horizontal, 4)
+                    .padding(.top, 8)
+
+                    // Qwen3-ASR models
+                    ForEach(Qwen3ASRVariant.allCases, id: \.self) { variant in
+                        Qwen3ASRModelCard(
+                            variant: variant,
+                            isSelected: modelState.selectedEngine == .qwen3ASR && modelState.qwen3ASRVariant == variant,
+                            loadingState: modelState.selectedEngine == .qwen3ASR && modelState.qwen3ASRVariant == variant
+                                ? modelState.qwen3ASRLoadingState : .notDownloaded,
+                            onSelect: {
+                                modelState.selectedEngine = .qwen3ASR
+                                modelState.qwen3ASRVariant = variant
+                                if modelState.qwen3ASRLoadingState != .loaded {
+                                    Task {
+                                        await modelState.loadQwen3ASRModel()
+                                    }
+                                }
+                            },
+                            onDownload: {
+                                modelState.selectedEngine = .qwen3ASR
+                                modelState.qwen3ASRVariant = variant
+                                Task {
+                                    await modelState.loadQwen3ASRModel()
+                                }
+                            }
+                        )
+                    }
+
                     // WhisperKit section header
                     HStack {
                         Text("WhisperKit")
@@ -196,6 +235,15 @@ struct SettingsView: View {
                 statusRow(icon: "mic.fill", text: "Current STT: \(modelState.parakeetVersion.displayName) (Parakeet)")
             case .loading, .downloading:
                 statusRow(icon: "mic.fill", text: "Current STT: Loading Parakeet...")
+            default:
+                statusRow(icon: "mic.fill", text: "Current STT: Download a model to get started")
+            }
+        case .qwen3ASR:
+            switch modelState.qwen3ASRLoadingState {
+            case .loaded:
+                statusRow(icon: "mic.fill", text: "Current STT: \(modelState.qwen3ASRVariant.displayName) (Qwen3-ASR)")
+            case .loading, .downloading:
+                statusRow(icon: "mic.fill", text: "Current STT: Loading Qwen3-ASR...")
             default:
                 statusRow(icon: "mic.fill", text: "Current STT: Download a model to get started")
             }

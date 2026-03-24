@@ -220,6 +220,129 @@ struct ModelCard: View {
     }
 }
 
+struct Qwen3ASRModelCard: View {
+    let variant: Qwen3ASRVariant
+    let isSelected: Bool
+    let loadingState: Qwen3ASRLoadingState
+    let onSelect: () -> Void
+    let onDownload: () -> Void
+
+    var isDownloaded: Bool {
+        loadingState == .loaded
+    }
+
+    var body: some View {
+        HStack(spacing: 16) {
+            // Radio button
+            Image(systemName: isSelected ? "largecircle.fill.circle" : "circle")
+                .foregroundColor(isSelected ? .accentColor : .secondary)
+                .imageScale(.large)
+
+            // Model info
+            VStack(alignment: .leading, spacing: 6) {
+                HStack {
+                    Text(variant.displayName)
+                        .font(.headline)
+
+                    // Language badge
+                    Text(variant.languages)
+                        .font(.caption2)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(
+                            Capsule()
+                                .fill(Color.blue.opacity(0.15))
+                        )
+                        .foregroundColor(.blue)
+                }
+
+                Text(variant.description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                HStack(spacing: 16) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "internaldrive")
+                        Text(variant.size)
+                            .fixedSize()
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+
+                    HStack(spacing: 4) {
+                        Image(systemName: "speedometer")
+                        Text(variant.speed)
+                            .fixedSize()
+                    }
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .help("MLX-powered inference on Apple Silicon GPU")
+                }
+            }
+
+            Spacer()
+
+            // Download button or status
+            if isDownloaded {
+                switch loadingState {
+                case .loading:
+                    HStack {
+                        ProgressView()
+                            .scaleEffect(0.5)
+                            .frame(width: 16, height: 16)
+                        Text("Loading...")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                case .loaded:
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundColor(.green)
+                        Text("Loaded")
+                            .font(.caption)
+                            .foregroundColor(.green)
+                    }
+                default:
+                    HStack {
+                        Image(systemName: "checkmark.circle")
+                            .foregroundColor(.blue)
+                        Text("Downloaded")
+                            .font(.caption)
+                            .foregroundColor(.secondary)
+                    }
+                }
+            } else if loadingState == .downloading || loadingState == .loading {
+                HStack(spacing: 8) {
+                    ProgressView()
+                        .progressViewStyle(.linear)
+                        .frame(width: 80)
+                    Text(loadingState == .downloading ? "Downloading..." : "Loading...")
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+            } else {
+                Button(action: onDownload) {
+                    Label("Download", systemImage: "arrow.down.circle")
+                }
+                .buttonStyle(.bordered)
+            }
+        }
+        .padding()
+        .background(
+            RoundedRectangle(cornerRadius: 8)
+                .fill(isSelected ? Color.accentColor.opacity(0.1) : Color.gray.opacity(0.05))
+        )
+        .overlay(
+            RoundedRectangle(cornerRadius: 8)
+                .stroke(isSelected ? Color.accentColor : Color.gray.opacity(0.2), lineWidth: 1)
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            onSelect()
+        }
+    }
+}
+
 struct ParakeetModelCard: View {
     let version: ParakeetVersion
     let isSelected: Bool

@@ -282,6 +282,8 @@ class AudioTranscriptionManager {
             await transcribeWithWhisperKit()
         case .parakeet:
             await transcribeWithParakeet()
+        case .qwen3ASR:
+            await transcribeWithQwen3ASR()
         }
     }
 
@@ -386,6 +388,51 @@ class AudioTranscriptionManager {
             handleTranscriptionResult(transcription)
         } catch {
             logger.info("Parakeet transcription error: \(error)")
+            isTranscribing = false
+            delegate?.transcriptionDidFail(error: "Transcription failed: \(error.localizedDescription)")
+        }
+    }
+
+    @MainActor
+    private func transcribeWithQwen3ASR() async {
+        // Load model if not already loaded
+        if ModelStateManager.shared.loadedQwen3ASRTranscriber == nil ||
+           ModelStateManager.shared.qwen3ASRLoadingState != .loaded {
+            await ModelStateManager.shared.loadQwen3ASRModel()
+        }
+
+        guard let transcriber = ModelStateManager.shared.loadedQwen3ASRTranscriber,
+              transcriber.isReady else {
+            logger.info("Qwen3-ASR not initialized - please select Qwen3-ASR in Settings and wait for model to load")
+            isTranscribing = false
+            delegate?.transcriptionDidFail(error: "No Qwen3-ASR model loaded. Please wait for model to download in Settings.")
+            return
+        }
+
+        // Pad short audio with 1 second of silence to improve transcription reliability
+        let paddingThresholdSeconds = 1.5
+        let paddingDurationSeconds = 1.0
+        let minSamplesForPadding = Int(paddingThresholdSeconds * sampleRate)
+        let paddingSamples = Int(paddingDurationSeconds * sampleRate)
+
+        var paddedBuffer = audioBuffer
+        if audioBuffer.count < minSamplesForPadding {
+            paddedBuffer.append(contentsOf: [Float](repeating: 0.0, count: paddingSamples))
+            logger.info("Padded short audio with \(paddingDurationSeconds)s of silence")
+        }
+
+        logger.info("Transcribing \(audioBuffer.count) samples (\(Double(audioBuffer.count) / sampleRate) seconds) with Qwen3-ASR...")
+
+        do {
+            // Qwen3ASR transcribe is synchronous — run off MainActor to avoid blocking UI
+            let samples = paddedBuffer
+            let transcription = try await Task.detached(priority: .userInitiated) {
+                try transcriber.transcribe(audioSamples: samples)
+            }.value
+            isTranscribing = false
+            handleTranscriptionResult(transcription)
+        } catch {
+            logger.info("Qwen3-ASR transcription error: \(error)")
             isTranscribing = false
             delegate?.transcriptionDidFail(error: "Transcription failed: \(error.localizedDescription)")
         }

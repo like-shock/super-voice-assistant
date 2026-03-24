@@ -261,6 +261,8 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
                 }
             case .parakeet:
                 await ModelStateManager.shared.loadParakeetModel()
+            case .qwen3ASR:
+                await ModelStateManager.shared.loadQwen3ASRModel()
             }
         }
 
@@ -282,11 +284,17 @@ class AppDelegate: NSObject, NSApplicationDelegate, AudioTranscriptionManagerDel
             .sink { engine in
                 switch engine {
                 case .whisperKit:
-                    // Unload Parakeet to free memory
+                    // Unload other engines to free memory
                     ModelStateManager.shared.unloadParakeetModel()
+                    ModelStateManager.shared.unloadQwen3ASRModel()
                 case .parakeet:
-                    // Unload WhisperKit to free memory
+                    // Unload other engines to free memory
                     ModelStateManager.shared.unloadWhisperKitModel()
+                    ModelStateManager.shared.unloadQwen3ASRModel()
+                case .qwen3ASR:
+                    // Unload other engines to free memory
+                    ModelStateManager.shared.unloadWhisperKitModel()
+                    ModelStateManager.shared.unloadParakeetModel()
                 }
             }
 

@@ -10,6 +10,7 @@ private let logger = AppLogger.make("ModelState")
 public enum TranscriptionEngine: String, CaseIterable {
     case whisperKit = "whisperKit"
     case parakeet = "parakeet"
+    case qwen3ASR = "qwen3ASR"
 
     public var displayName: String {
         switch self {
@@ -17,6 +18,8 @@ public enum TranscriptionEngine: String, CaseIterable {
             return "WhisperKit"
         case .parakeet:
             return "Parakeet"
+        case .qwen3ASR:
+            return "Qwen3-ASR"
         }
     }
 
@@ -26,6 +29,8 @@ public enum TranscriptionEngine: String, CaseIterable {
             return "On-device transcription by Argmax"
         case .parakeet:
             return "Fast & accurate by FluidAudio"
+        case .qwen3ASR:
+            return "MLX-powered, 52 languages"
         }
     }
 }
@@ -60,6 +65,16 @@ class ModelStateManager: ObservableObject {
     @Published var parakeetLoadingState: ParakeetLoadingState = .notDownloaded
     private var currentParakeetLoadingTask: Task<Void, Never>? = nil
 
+    // MARK: - Qwen3-ASR State
+    @Published var loadedQwen3ASRTranscriber: Qwen3ASRTranscriber? = nil
+    @Published var qwen3ASRVariant: Qwen3ASRVariant = .small4bit {
+        didSet {
+            UserDefaults.standard.set(qwen3ASRVariant.rawValue, forKey: "selectedQwen3ASRVariant")
+        }
+    }
+    @Published var qwen3ASRLoadingState: Qwen3ASRLoadingState = .notDownloaded
+    private var currentQwen3ASRLoadingTask: Task<Void, Never>? = nil
+
     // MARK: - WhisperKit State
     @Published var downloadedModels: Set<String> = []
     @Published var isCheckingModels = true  // Start as true to prevent flash
@@ -88,6 +103,12 @@ class ModelStateManager: ObservableObject {
         if let versionRaw = UserDefaults.standard.string(forKey: "selectedParakeetVersion"),
            let version = ParakeetVersion(rawValue: versionRaw) {
             self.parakeetVersion = version
+        }
+
+        // Restore the selected Qwen3-ASR variant from UserDefaults
+        if let variantRaw = UserDefaults.standard.string(forKey: "selectedQwen3ASRVariant"),
+           let variant = Qwen3ASRVariant(rawValue: variantRaw) {
+            self.qwen3ASRVariant = variant
         }
 
         // Restore the selected WhisperKit model from UserDefaults
@@ -389,6 +410,75 @@ class ModelStateManager: ObservableObject {
             parakeetLoadingState = .notDownloaded
         }
         logger.info("Parakeet model unloaded")
+    }
+
+    // MARK: - Qwen3-ASR Model Loading
+
+    func loadQwen3ASRModel() async {
+        // Skip if already downloading or loading
+        guard qwen3ASRLoadingState != .downloading && qwen3ASRLoadingState != .loading else {
+            logger.info("Qwen3-ASR model already downloading/loading, skipping...")
+            return
+        }
+
+        // Cancel any existing loading task
+        currentQwen3ASRLoadingTask?.cancel()
+
+        qwen3ASRLoadingState = .downloading
+        logger.info("[Qwen3-ASR] Loading model: \(qwen3ASRVariant.displayName)")
+
+        // Load off MainActor to prevent potential deadlock
+        let variant = qwen3ASRVariant
+        let task = Task.detached(priority: .userInitiated) { () -> Void in
+            if Task.isCancelled {
+                logger.info("Qwen3-ASR model loading cancelled")
+                return
+            }
+
+            do {
+                let transcriber = Qwen3ASRTranscriber()
+                try await transcriber.loadModel(variant: variant)
+
+                if Task.isCancelled {
+                    logger.info("Qwen3-ASR model loading cancelled after load")
+                    await MainActor.run {
+                        ModelStateManager.shared.qwen3ASRLoadingState = .notDownloaded
+                    }
+                    return
+                }
+
+                await MainActor.run {
+                    ModelStateManager.shared.loadedQwen3ASRTranscriber = transcriber
+                    ModelStateManager.shared.qwen3ASRLoadingState = .loaded
+                }
+
+                logger.info("Qwen3-ASR model loaded successfully: \(variant.displayName)")
+
+            } catch {
+                if Task.isCancelled {
+                    logger.info("Qwen3-ASR model loading cancelled: \(error)")
+                } else {
+                    logger.info("Failed to load Qwen3-ASR model: \(error)")
+                }
+
+                await MainActor.run {
+                    ModelStateManager.shared.qwen3ASRLoadingState = .notDownloaded
+                    ModelStateManager.shared.loadedQwen3ASRTranscriber = nil
+                }
+            }
+        }
+
+        currentQwen3ASRLoadingTask = task
+        // Await off MainActor — yields MainActor so MLX can use it freely
+        let _ = await Task.detached { await task.value }.value
+    }
+
+    /// Unload Qwen3-ASR model to free memory
+    func unloadQwen3ASRModel() {
+        loadedQwen3ASRTranscriber?.unloadModel()
+        loadedQwen3ASRTranscriber = nil
+        qwen3ASRLoadingState = .notDownloaded
+        logger.info("Qwen3-ASR model unloaded")
     }
 
     /// Unload WhisperKit model to free memory

@@ -36,6 +36,7 @@ All models stored under `~/Library/Application Support/`:
 - **WhisperKit**: `~/Library/Application Support/SuperVoiceAssistant/models/whisperkit/{model_name}/`
 - **Supertonic**: `~/Library/Application Support/SuperVoiceAssistant/models/supertonic/` (onnx/, voice_styles/)
 - **Parakeet**: `~/Library/Application Support/FluidAudio/Models/` (FluidAudio SDK default, cannot customize)
+- **Qwen3-ASR**: Auto-downloaded by `qwen3-asr-swift` from HuggingFace Hub (managed by the library)
 
 Auto-migration from legacy paths on first launch:
 - WhisperKit: `~/Documents/huggingface/models/argmaxinc/whisperkit-coreml/` → Application Support
@@ -102,21 +103,32 @@ Auto-migration from legacy paths on first launch:
 - ✅ Immediate playback stop on cancel (AVAudioPlayer.stop())
 - ✅ Automatic fallback to Supertonic when GEMINI_API_KEY is missing
 
-### STT Engines (WhisperKit / Parakeet / Gemini)
+### STT Engines (WhisperKit / Parakeet / Qwen3-ASR / Gemini)
 
-**Status**: ✅ Complete — three engines via ModelStateManager
+**Status**: ✅ Complete — four engines via ModelStateManager
 **Key Files**:
-- `Sources/AudioTranscriptionManager.swift` - Audio recording + transcription routing (WhisperKit/Parakeet)
+- `Sources/AudioTranscriptionManager.swift` - Audio recording + transcription routing (WhisperKit/Parakeet/Qwen3-ASR)
 - `Sources/GeminiAudioRecordingManager.swift` - Gemini cloud transcription recording
 - `Sources/ModelStateManager.swift` - Engine selection + model lifecycle (fire-and-forget loading)
 - `SharedSources/ParakeetTranscriber.swift` - FluidAudio Parakeet wrapper
+- `SharedSources/Qwen3ASRTranscriber.swift` - Qwen3-ASR MLX wrapper
 - `SharedSources/GeminiAudioTranscriber.swift` - Gemini API transcription
 
+**Qwen3-ASR (Local, MLX)**:
+- `qwen3-asr-swift` package (ivan-digital): CoreML encoder on ANE + MLX decoder on GPU
+- Zero Python dependency, fully native Swift
+- 0.6B model in 4-bit (~680MB) and 8-bit (~1.1GB) quantizations
+- 52 language support (auto-detect or explicit)
+- Models auto-downloaded from HuggingFace Hub on first load
+- `Qwen3ASRVariant` enum (avoids naming conflict with library's `Qwen3ASRModel`)
+- Synchronous `transcribe()` — wrapped in `Task.detached` to avoid blocking MainActor
+
 **Features**:
-- ✅ Cmd+Opt+S: WhisperKit/Parakeet recording (offline)
+- ✅ Cmd+Opt+S: WhisperKit/Parakeet/Qwen3-ASR recording (offline)
 - ✅ Cmd+Opt+X: Gemini audio recording (cloud)
 - ✅ Multiple WhisperKit models (distil-large-v3, large-v3-turbo, large-v3)
 - ✅ Parakeet v2/v3 support via FluidAudio SDK
+- ✅ Qwen3-ASR 0.6B (4-bit/8-bit) support via qwen3-asr-swift
 - ✅ Mutual exclusion between recording modes
 - ✅ Floating recording indicator (bottom-center, fade in/out, audio level bar, processing animation)
 

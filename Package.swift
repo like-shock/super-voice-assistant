@@ -62,7 +62,8 @@ let package = Package(
         .package(url: "https://github.com/microsoft/onnxruntime-swift-package-manager.git", from: "1.16.0"),
         .package(url: "https://github.com/daltoniam/Starscream", from: "4.0.0"),
         .package(url: "https://github.com/apple/swift-log.git", from: "1.5.0"),
-        .package(url: "https://github.com/sushichop/Puppy.git", from: "0.7.0")
+        .package(url: "https://github.com/sushichop/Puppy.git", from: "0.7.0"),
+        .package(url: "https://github.com/ivan-digital/qwen3-asr-swift", branch: "main")
     ],
     targets: [
         .target(
@@ -73,7 +74,8 @@ let package = Package(
                 .product(name: "onnxruntime", package: "onnxruntime-swift-package-manager"),
                 "Starscream",
                 .product(name: "Logging", package: "swift-log"),
-                "Puppy"
+                "Puppy",
+                .product(name: "Qwen3ASR", package: "qwen3-asr-swift")
             ],
             path: "SharedSources"),
         .executableTarget(
